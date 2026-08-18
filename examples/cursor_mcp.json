@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mavlink": {
+      "command": "mavlink-mcp",
+      "env": {
+        "MAVLINK_MCP_URL": "udpin://0.0.0.0:14540",
+        "MAVLINK_MCP_READONLY": "true",
+        "MAVLINK_MCP_MAX_ALTITUDE_M": "50",
+        "MAVLINK_MCP_GEOFENCE_RADIUS_M": "200"
+      }
+    }
+  }
+}

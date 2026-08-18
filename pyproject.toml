@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mavlink-mcp"
+version = "0.1.0"
+description = "Vendor-neutral UAV capability layer + MCP server: connect AI agents to MAVLink drones (PX4/ArduPilot) via MAVSDK"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "N4G" }]
+keywords = [
+  "mcp",
+  "mavlink",
+  "mavsdk",
+  "uav",
+  "drone",
+  "px4",
+  "ardupilot",
+  "robotics",
+  "ai-agent",
+  "model-context-protocol",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "fastmcp>=2,<3",
+  "mavsdk>=2,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.24,<2",
+]
+
+[project.scripts]
+mavlink-mcp = "mavlink_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/hieutachi/mavlink-mcp"
+Repository = "https://github.com/hieutachi/mavlink-mcp"
+Issues = "https://github.com/hieutachi/mavlink-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mavlink_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
