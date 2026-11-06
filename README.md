@@ -283,7 +283,7 @@ refusal cases, is [examples/patrol_sim.py](examples/patrol_sim.py).
 | [BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md) | 2,340 trials against the pre-gateway guardrails |
 | [SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md) | Recorded run against headless PX4 |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Component design |
-| [site/index.html](site/index.html) | One-page showcase: interactive attack replay, measured results, links to every artifact (open locally, or publish the `site/` folder with GitHub Pages) |
+| [site/index.html](site/index.html) | One-page showcase, live at <https://hieutachi.github.io/mavlink-mcp/>: measured results, interactive attack replay, links to every artifact |
 
 For the competition submission, see [submission/](submission/).
 

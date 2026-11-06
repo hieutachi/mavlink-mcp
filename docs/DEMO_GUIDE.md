@@ -48,7 +48,7 @@ export SAFEMAV_CONFIG=cfg.json MAVLINK_MCP_BACKEND=sim
 
 ## The one-page version
 
-[`site/index.html`](../site/index.html) is a self-contained showcase of the same material: the measured
+[`site/index.html`](../site/index.html), published at <https://hieutachi.github.io/mavlink-mcp/>, is a self-contained showcase of the same material: the measured
 comparison, the architecture, the threat coverage grid and an interactive replay of seven attacks against
 the gateway. It is a convenience surface for reviewers, not evidence — the transcripts below are.
 

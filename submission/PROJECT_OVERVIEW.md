@@ -116,7 +116,7 @@ flight drops the aircraft.
 | Adversarial coverage | [ADVERSARIAL_TESTS.md](../docs/ADVERSARIAL_TESTS.md): T01–T25 mapped to running tests |
 | Security properties | [SECURITY_ANALYSIS.md](../docs/SECURITY_ANALYSIS.md): claim-by-claim, with limits |
 | Threat model | [THREAT_MODEL.md](../docs/THREAT_MODEL.md): STRIDE, attack tree, G1/G2 |
-| One-page walkthrough | [site/index.html](../site/index.html): interactive attack replay over the same measured reason codes, with deep links into every artifact above |
+| One-page walkthrough | <https://hieutachi.github.io/mavlink-mcp/> (source: [site/index.html](../site/index.html)): measured results and an interactive attack replay over the same reason codes, with deep links into every artifact above |
 | Reproduction | [INSTALLATION.md](../docs/INSTALLATION.md), [DEMO_GUIDE.md](../docs/DEMO_GUIDE.md) |
 
 **The prevention criterion**, applied uniformly: an action counts as prevented
