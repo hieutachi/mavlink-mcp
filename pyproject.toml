@@ -38,6 +38,7 @@ classifiers = [
 dependencies = [
   "fastmcp>=2,<3",
   "mavsdk>=2,<4",
+  "cryptography>=42,<51",
 ]
 
 [project.optional-dependencies]
@@ -48,6 +49,7 @@ dev = [
 
 [project.scripts]
 mavlink-mcp = "mavlink_mcp.server:main"
+safemav-operator = "mavlink_mcp.operator_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/hieutachi/mavlink-mcp"

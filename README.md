@@ -15,7 +15,7 @@ It is the sister project of [rosbridge-mcp](https://github.com/hieutachi/rosbrid
 
 - **For AI agents, capabilities beat 400 SDK functions.** An agent asks `get_capabilities` ("what can this drone do?"), gets back a small vocabulary of physical actions, and plans with it — no MAVLink knowledge needed on the model side.
 - **Vendor-neutral by construction.** Capabilities are defined in physical quantities (degrees, meters, volts) from open specs — not copied from any proprietary SDK surface. The MAVSDK adapter is one implementation; a future ROS 2 adapter (reusing rosbridge-mcp) implements the same interface.
-- **Guardrails are part of the API, not an afterthought.** Readonly mode is the default, arming and takeoff require explicit operator-approved confirmation, and every commanded location is checked against an altitude ceiling and a soft geofence — before anything reaches the autopilot.
+- **Authorization is part of the API, not an afterthought.** Readonly is the default. Every command that can move the vehicle needs an Ed25519 approval signed by a separate operator key, bound to that exact request, and re-checked immediately before each physical write. Altitude, geofence, battery and vehicle-state limits are enforced in the same path.
 
 ## Architecture
 
@@ -29,9 +29,13 @@ It is the sister project of [rosbridge-mcp](https://github.com/hieutachi/rosbrid
 Python scripts use the same capability layer directly (mavlink_mcp.Drone).
 ```
 
-The **capability layer** (`Drone`) owns all policy — readonly, confirmation, altitude, geofence. The **adapter** (`MavsdkAdapter`) only translates approved operations to MAVLink; it is the only module that imports `mavsdk`. New backends implement the same `DroneAdapter` interface and inherit both surfaces (MCP tools + Python library) and every guardrail for free.
+The **safety gateway** owns all authorization — signed approvals, replay protection, telemetry freshness, altitude and geofence limits, and the audit ledger. The **capability layer** (`Drone`) is a thin facade over it. The **adapter** (`MavsdkAdapter`) only translates approved operations to MAVLink and refuses any write without a valid execution lease; it is the only module that imports `mavsdk`. New backends implement the same `DroneAdapter` interface and inherit both surfaces (MCP tools + Python library) and every guardrail for free.
 
-## Quick Start (60 seconds)
+## Quick Start
+
+For a local, network-free demo, set `MAVLINK_MCP_BACKEND=sim` and follow [Option 0 in the simulator guide](docs/simulator-quickstart.md#option-0--built-in-kinematic-simulator-windows-no-docker-or-ros). All 12 tools work against a moving synthetic vehicle without Docker, ROS or PX4. Telemetry is labelled synthetic; battery/GPS are null. This is a kinematic integration test, **not** a physics or energy simulator. Run `python examples/patrol_sim.py` for a bounded stdio flight test.
+
+For the MAVSDK backend (the default), install and configure SITL separately:
 
 ```bash
 pip install git+https://github.com/hieutachi/mavlink-mcp.git
@@ -64,14 +68,14 @@ When you're ready to fly (in the simulator!), set `MAVLINK_MCP_READONLY` to `"fa
 | `get_telemetry` | Telemetry | Position, attitude, battery, GPS, mode, armed, in-air | no |
 | `get_flight_mode` | FlightMode | Current flight mode (HOLD, MISSION, RTL, ...) | no |
 | `get_connection_status` | — | Endpoint, connection state, guardrail config | no |
-| `arm` | Arm/Disarm | Spin up motors | **yes** — requires `confirm=true` |
-| `disarm` | Arm/Disarm | Stop motors (on the ground) | **yes** |
-| `takeoff` | Takeoff | Climb to a target altitude | **yes** — requires `confirm=true` |
-| `land` | Land | Land at the current position | **yes** |
-| `hold` | FlightMode | Pause: stop and loiter in place | **yes** |
-| `return_to_launch` | ReturnToLaunch | Fly home and land | **yes** |
-| `goto_location` | Goto | Fly to one waypoint and loiter | **yes** — geofence + altitude checked |
-| `fly_mission` | Mission | Upload a waypoint mission and start it | **yes** — every waypoint checked |
+| `arm` | Arm/Disarm | Spin up motors | **signed approval** |
+| `disarm` | Arm/Disarm | Stop motors (on the ground) | **signed approval** |
+| `takeoff` | Takeoff | Climb to a target altitude | **signed approval** + altitude limit |
+| `land` | Land | Land at the current position | **signed approval** |
+| `hold` | FlightMode | Pause: stop and loiter in place | **signed approval** |
+| `return_to_launch` | ReturnToLaunch | Fly home and land | **signed approval** |
+| `goto_location` | Goto | Fly to one waypoint and loiter | **signed approval** + geofence/altitude |
+| `fly_mission` | Mission | Upload a waypoint mission and start it | **signed approval**, every waypoint checked |
 
 ## Example conversation
 
@@ -82,7 +86,12 @@ When you're ready to fly (in the simulator!), set `MAVLINK_MCP_READONLY` to `"fa
 >
 > **You:** Confirmed, go ahead.
 >
-> **Agent:** *(calls `arm(confirm=true)`, `takeoff(altitude_m=20, confirm=true)`, then `fly_mission` with 3 waypoints inside the geofence, monitors `get_telemetry`, finishes with `return_to_launch`)*
+> **Agent:** *(calls `arm` — gets back an approval request, not an action)*
+> Request `a1b2c3` is waiting for your signature.
+>
+> **You:** *(runs `safemav-operator approve` with your key)*
+>
+> **Agent:** *(resubmits `arm` with the signed token, then `takeoff(altitude_m=20)` the same way, then `fly_mission` with 3 waypoints inside the geofence, monitors `get_telemetry`, finishes with `return_to_launch`)*
 > Patrol complete — the drone is back at the launch point and disarmed.
 
 ## Configuration
@@ -98,26 +107,75 @@ When you're ready to fly (in the simulator!), set `MAVLINK_MCP_READONLY` to `"fa
 
 Letting a language model command an aircraft is a real risk, so the guardrails are stricter than a typical SDK:
 
-1. **Readonly by default.** Unlike most tools, you must explicitly opt in to flight with `MAVLINK_MCP_READONLY=false`. In readonly mode all telemetry tools work; every mutating tool is rejected with a clear explanation.
-2. **Two-step confirmation for the dangerous transitions.** `arm` and `takeoff` require `confirm=true`, and the tool descriptions instruct the agent to obtain human approval first — an agent cannot legitimately take off in a single autonomous step.
-3. **Soft geofence + altitude ceiling.** Every commanded location (goto and each mission waypoint) is validated against `MAVLINK_MCP_GEOFENCE_RADIUS_M` around home and `MAVLINK_MCP_MAX_ALTITUDE_M` before anything is sent to the autopilot.
-4. **Safety actions stay friction-free.** `land`, `hold`, and `return_to_launch` never require confirmation — de-escalation must always be cheap.
+1. **Readonly by default, and no gateway means no writes.** Without a trusted
+   `SAFEMAV_CONFIG` launch file the server exposes telemetry only. Setting
+   `MAVLINK_MCP_READONLY=false` does not grant write access on its own.
+2. **Signed human approval, not a boolean.** An agent's first call returns an
+   approval request. A human signs that exact request with an Ed25519 key the
+   server only knows the public half of (`safemav-operator approve`), and the
+   agent resubmits it unchanged. `confirm=true` is deprecated and authorizes
+   nothing. The approval is bound to the actor, vehicle, gateway, boot epoch,
+   policy hash, connection epoch, home position and exact parameters, and is
+   single-use.
+3. **Re-checked at every physical write.** Commands like takeoff touch two
+   MAVSDK sinks. Before each one the gateway re-verifies the approval deadline
+   (UTC and monotonic), telemetry freshness, home and connection epochs, the
+   policy hash, the operator key, and that the audit ledger is still writable.
+   If anything changed between the first sink and the second, the second does
+   not run and the request is recorded `UNKNOWN`.
+4. **Deterministic limits.** Altitude ceiling, geofence radius, speed, battery
+   reserve, GPS fix quality and vehicle state are checked on canonical integer
+   units, with float32 rounding accounted for, before anything is sent.
+5. **Durable audit.** Every request, approval, sink check and outcome is in a
+   hash-chained SQLite ledger. An uncertain outcome latches the writer closed,
+   across process restarts.
+6. **`ACKNOWLEDGED` is not "done".** It means the autopilot accepted the
+   command. Observe telemetry before concluding a flight finished.
 
-These checks are policy inside this process — **not** a substitute for the autopilot's own failsafes, a real geofence configured in PX4/ArduPilot, network isolation, or a human with an RC transmitter. Read [SECURITY.md](SECURITY.md) before considering real hardware, and treat real-world flights as requiring registration/permits under your local aviation law (e.g. Vietnam's UAV Decree 288/2025 requires registration and flight permits).
+Evidence for these claims, measured against a live headless PX4 SITL, is in
+[docs/SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md).
+
+**Scope limit, stated plainly:** enforcement covers the MCP tools and the
+supported Python API in this process. It is not an OS sandbox. Code already
+running inside the same interpreter can read the gateway's private issuer
+object and forge a lease; that attempt is enumerated and tested in
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) section 8b. These checks are also
+**not** a substitute for the autopilot's own failsafes, a real geofence
+configured in PX4/ArduPilot, network isolation, or a human with an RC transmitter. Read [SECURITY.md](SECURITY.md) before considering real hardware, and treat real-world flights as requiring registration/permits under your local aviation law (e.g. Vietnam's UAV Decree 288/2025 requires registration and flight permits).
 
 ## Python library
 
-The same capability layer is importable for scripts and notebooks — see [examples/patrol_sitl.py](examples/patrol_sitl.py) for a full takeoff → waypoint → land run against SITL:
+The same capability layer is importable for scripts and notebooks. Reads need
+nothing special; writes go through the same gateway as the MCP tools, so a
+bare `Drone` is read-only by design:
 
 ```python
-from mavlink_mcp import Drone, GuardrailConfig
+from mavlink_mcp import Drone
 from mavlink_mcp.adapters.mavsdk_adapter import MavsdkAdapter
 
-drone = Drone(MavsdkAdapter(), guardrails=GuardrailConfig(readonly=False))
+drone = Drone(MavsdkAdapter())            # no gateway -> telemetry only
 snapshot = await drone.get_telemetry()
-await drone.arm(confirm=True)
-await drone.takeoff(20.0, confirm=True)
+
+result = await drone.arm()                # REQUIRE_APPROVAL, nothing was sent
+print(result.request_id)                  # hand this to the operator to sign
 ```
+
+To actually fly, compose the trusted runtime (ledger, policy, operator trust
+store) and resubmit the signed token:
+
+```python
+from mavlink_mcp.safety.runtime import create_drone   # reads SAFEMAV_CONFIG
+
+drone = create_drone()
+pending = await drone.takeoff(20.0)
+# ... operator signs pending.approval_request out of band ...
+result = await drone.takeoff(20.0, request_id=pending.request_id,
+                             approval_token=token)
+assert result.execution_status == "ACKNOWLEDGED"   # accepted, not completed
+```
+
+A complete runnable version, including an ephemeral operator key and the
+refusal cases, is [examples/patrol_sim.py](examples/patrol_sim.py).
 
 ## Privacy & legal
 
@@ -128,13 +186,13 @@ await drone.takeoff(20.0, confirm=True)
 ## FAQ
 
 **Do I need a drone?**
-No. MVP1 is simulation-first: everything works against PX4 SITL (one Docker command) and is designed to also work against ArduPilot SITL. See [docs/simulator-quickstart.md](docs/simulator-quickstart.md).
+No. MVP1 is simulation-first and verified against PX4 SITL running headless (no Gazebo or GPU needed) — see [docs/SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md) and [docs/simulator-quickstart.md](docs/simulator-quickstart.md). No physical aircraft has been flown with this code.
 
 **Does it work with ArduPilot?**
-The capability layer targets both PX4 and ArduPilot through MAVSDK. PX4 SITL is the primary tested target in MVP1; ArduPilot SITL compatibility notes are in the quickstart, and validating it in CI is a roadmap item.
+The capability layer targets both PX4 and ArduPilot through MAVSDK. PX4 SITL is the tested target: see [docs/SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md) for a recorded run against headless PX4 (arm, takeoff, goto, RTL, plus ten refusal cases). ArduPilot has **not** been tested at all; compatibility notes in the quickstart are design intent, and validating it is a roadmap item.
 
 **Why not just use MAVSDK directly?**
-If you're writing Python by hand, do! mavlink-mcp adds the layer MAVSDK doesn't have: an MCP tool surface for AI agents, a capability model with runtime discovery, and production guardrails (readonly, confirmation, geofence) enforced above the protocol.
+If you're writing Python by hand, do! mavlink-mcp adds the layer MAVSDK doesn't have: an MCP tool surface for AI agents, a capability model with runtime discovery, and a policy-enforced safety gateway (signed operator approval, per-sink re-validation, hash-chained audit) above the protocol.
 
 **The agent says no vehicle was discovered.**
 Check the SITL is running and sending MAVLink to the endpoint in `MAVLINK_MCP_URL` (PX4 SITL sends to UDP 14540 by default). The quickstart has a troubleshooting table.
@@ -161,6 +219,6 @@ MIT — see [LICENSE](LICENSE). Dependency licenses are permissive and compatibl
 **mavlink-mcp** là lớp capability trung lập (vendor-neutral) cho UAV kèm MCP server, xây hoàn toàn trên chuẩn mở: kết nối AI agent (Claude Desktop, Cursor, VS Code...) với drone nói MAVLink (PX4/ArduPilot) qua thư viện MAVSDK (BSD-3). Đây là dự án chị em của rosbridge-mcp.
 
 - **8 capability:** telemetry (vị trí/tư thế/pin/GPS), flight mode, arm/disarm, takeoff, land, goto, mission, return-to-launch — 12 tool MCP.
-- **An toàn mặc định:** chế độ readonly bật sẵn (`MAVLINK_MCP_READONLY` mặc định `true`); arm và takeoff cần `confirm=true` sau khi người vận hành đồng ý; geofence mềm + trần độ cao cấu hình được.
+- **An toàn mặc định:** chỉ đọc nếu chưa cấu hình `SAFEMAV_CONFIG`. Mọi lệnh di chuyển phương tiện cần approval Ed25519 do người vận hành ký, ràng buộc vào đúng request đó, dùng một lần, và được kiểm tra lại ngay trước từng lệnh gửi xuống xe. `confirm=true` không còn cấp quyền. Geofence mềm + trần độ cao cấu hình được.
 - **Simulation-first:** chạy với PX4 SITL (1 lệnh Docker) — xem [docs/simulator-quickstart.md](docs/simulator-quickstart.md). Dự án dành cho mô phỏng/nghiên cứu; bay thật hoàn toàn do bạn tự chịu trách nhiệm, bao gồm đăng ký thiết bị và xin phép bay theo Luật Phòng không nhân dân 49/2024 và Nghị định 288/2025.
 - Tên "mavlink-mcp" là tên tạm — sẽ rà soát trademark policy của Dronecode trước khi công bố.

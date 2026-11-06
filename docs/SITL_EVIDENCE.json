@@ -1,0 +1,179 @@
+{
+  "address": "udpin://0.0.0.0:14540",
+  "airborne_deny": {
+    "altitude_above_policy_in_flight": {
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "ALTITUDE_LIMIT",
+      "matched": true,
+      "reason_code": "ALTITUDE_LIMIT"
+    },
+    "mission_waypoint_outside_geofence": {
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "OUTSIDE_GEOFENCE",
+      "matched": true,
+      "reason_code": "OUTSIDE_GEOFENCE"
+    },
+    "outside_geofence": {
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "OUTSIDE_GEOFENCE",
+      "matched": true,
+      "reason_code": "OUTSIDE_GEOFENCE"
+    }
+  },
+  "audit": {
+    "event_count": 19,
+    "hash_chain_valid": true,
+    "kinds": [
+      "APPROVAL_REQUESTED",
+      "APPROVAL_REQUESTED",
+      "APPROVAL_REQUESTED",
+      "EXECUTION_INTENT",
+      "SINK_CHECK",
+      "REQUEST_ACKNOWLEDGED",
+      "APPROVAL_REQUESTED",
+      "EXECUTION_INTENT",
+      "SINK_CHECK",
+      "SINK_CHECK",
+      "REQUEST_ACKNOWLEDGED",
+      "APPROVAL_REQUESTED",
+      "EXECUTION_INTENT",
+      "SINK_CHECK",
+      "REQUEST_ACKNOWLEDGED",
+      "APPROVAL_REQUESTED",
+      "EXECUTION_INTENT",
+      "SINK_CHECK",
+      "REQUEST_ACKNOWLEDGED"
+    ]
+  },
+  "autopilot": "PX4 SITL, built-in SIH dynamics, headless (no Gazebo)",
+  "connect_seconds": 1.0,
+  "deny_matrix": {
+    "altitude_above_policy": {
+      "connection_stable": true,
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "ALTITUDE_LIMIT",
+      "matched": true,
+      "reason_code": "ALTITUDE_LIMIT"
+    },
+    "excess_precision": {
+      "connection_stable": true,
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "INVALID_ARGUMENT",
+      "matched": true,
+      "reason_code": "INVALID_ARGUMENT"
+    },
+    "goto_while_grounded": {
+      "connection_stable": true,
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "UNSAFE_STATE",
+      "matched": true,
+      "reason_code": "UNSAFE_STATE"
+    },
+    "no_approval": {
+      "connection_stable": true,
+      "decision": "REQUIRE_APPROVAL",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "APPROVAL_REQUIRED",
+      "matched": true,
+      "reason_code": "APPROVAL_REQUIRED"
+    },
+    "nonfinite_altitude": {
+      "connection_stable": true,
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "INVALID_ARGUMENT",
+      "matched": true,
+      "reason_code": "INVALID_ARGUMENT"
+    },
+    "tampered_signature": {
+      "connection_stable": true,
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "APPROVAL_INVALID",
+      "matched": true,
+      "reason_code": "APPROVAL_INVALID"
+    },
+    "token_without_request_id": {
+      "connection_stable": true,
+      "decision": "DENY",
+      "execution_status": "NOT_STARTED",
+      "expected_reason": "APPROVAL_INVALID",
+      "matched": true,
+      "reason_code": "APPROVAL_INVALID"
+    }
+  },
+  "flight": [
+    {
+      "action": "arm",
+      "observed_armed": true,
+      "reason": "ACKNOWLEDGED",
+      "status": "ACKNOWLEDGED"
+    },
+    {
+      "action": "takeoff",
+      "observed_altitude_m": 8.15,
+      "reason": "ACKNOWLEDGED",
+      "status": "ACKNOWLEDGED"
+    },
+    {
+      "action": "goto",
+      "observed_latitude": 47.397804,
+      "reason": "ACKNOWLEDGED",
+      "status": "ACKNOWLEDGED"
+    },
+    {
+      "action": "return_to_launch",
+      "observed_in_air": false,
+      "reason": "ACKNOWLEDGED",
+      "status": "ACKNOWLEDGED"
+    }
+  ],
+  "freshness": {
+    "field_skew": {
+      "max_s": 1.9181,
+      "median_s": 0.9608,
+      "min_s": 0.0242,
+      "samples": 40
+    },
+    "receipt_age": {
+      "max_s": 1.9242,
+      "median_s": 0.9667,
+      "min_s": 0.0303,
+      "samples": 40
+    }
+  },
+  "generated_at_utc": "2026-11-06T02:16:53Z",
+  "hardware_contacted": false,
+  "home_anchor": {
+    "absolute_altitude_amsl_mm": 489420,
+    "home_epoch": "2",
+    "latitude_e7": 473977429,
+    "longitude_e7": 85455942,
+    "vertical_datum": "AMSL"
+  },
+  "initial_telemetry": {
+    "armed": false,
+    "battery_percent": 100.0,
+    "flight_mode": "HOLD",
+    "gps_fix": "FIX_3D",
+    "in_air": false,
+    "satellites": 10
+  },
+  "mavsdk_version": "3.17.2",
+  "ok": true,
+  "platform": "Linux 6.18.33.1-microsoft-standard-WSL2 / x86_64",
+  "policy": {
+    "max_age_ms": 3000,
+    "max_altitude_m": 30,
+    "max_radius_m": 200,
+    "max_skew_ms": 3000,
+    "note": "age/skew bounds derived from tools/measure_rates.py, not assumed"
+  },
+  "python": "3.10.12"
+}

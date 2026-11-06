@@ -17,6 +17,16 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass
+from decimal import Decimal
+
+
+def finite_number(value: float) -> bool:
+    """Reject nonnumeric, nonfinite and unrepresentable Python numbers."""
+    try:
+        return math.isfinite(value)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
 
 _FALSY = {"0", "false", "no", "off"}
 
@@ -43,6 +53,12 @@ class GuardrailConfig:
     readonly: bool = True
     max_altitude_m: float = DEFAULT_MAX_ALTITUDE_M
     geofence_radius_m: float = DEFAULT_GEOFENCE_RADIUS_M
+
+    def __post_init__(self) -> None:
+        for name in ("max_altitude_m", "geofence_radius_m"):
+            value = getattr(self, name)
+            if not finite_number(value) or value < 0:
+                raise ValueError(f"{name} must be finite and non-negative.")
 
     @classmethod
     def from_env(cls) -> "GuardrailConfig":
@@ -73,9 +89,15 @@ def _env_float(var: str, default: float) -> float:
     if not raw:
         return default
     try:
-        return float(raw)
+        value = float(raw)
     except ValueError:
         return default
+    if not math.isfinite(value) or value < 0:
+        return default
+    # Only explicit textual zero may disable a limit, not float underflow.
+    if value == 0 and Decimal(raw) != 0:
+        return default
+    return value
 
 
 def haversine_m(
@@ -91,4 +113,4 @@ def haversine_m(
         math.sin(dphi / 2) ** 2
         + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     )
-    return 2 * earth_radius_m * math.asin(math.sqrt(a))
+    return 2 * earth_radius_m * math.asin(math.sqrt(min(1.0, max(0.0, a))))

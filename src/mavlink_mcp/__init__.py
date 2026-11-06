@@ -14,7 +14,7 @@ Two surfaces over one core:
   capabilities as tools for AI agents (Claude, Cursor, ...).
 """
 
-from mavlink_mcp.adapter import AdapterError, DroneAdapter
+from mavlink_mcp.adapter import AdapterError, DroneAdapter, LeaseError
 from mavlink_mcp.capabilities import (
     Attitude,
     Battery,
@@ -36,6 +36,7 @@ __all__ = [
     "CapabilityNotSupported",
     "Drone",
     "DroneAdapter",
+    "LeaseError",
     "GpsInfo",
     "GuardrailConfig",
     "GuardrailViolation",

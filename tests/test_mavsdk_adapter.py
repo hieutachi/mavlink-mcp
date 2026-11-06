@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from mavlink_mcp.adapter import AdapterError
+from mavlink_mcp.adapter import AdapterError, ExecutionLease, LeaseError
 from mavlink_mcp.capabilities import Capability
 
 mavsdk_adapter = pytest.importorskip(
@@ -52,6 +52,37 @@ async def test_operations_require_connection():
         await adapter.get_telemetry()
     with pytest.raises(AdapterError, match="Not connected"):
         await adapter.arm()
+
+
+@pytest.mark.asyncio
+async def test_protected_sink_requires_lease_after_connection_check():
+    adapter = mavsdk_adapter.MavsdkAdapter()
+    with pytest.raises(AdapterError, match="Not connected"):
+        await adapter.land()
+    adapter._connected = True
+    adapter._system = object()
+    with pytest.raises(LeaseError, match="requires a gateway"):
+        await adapter.land()
+
+
+def test_execution_lease_is_ordered_single_use_and_revocable():
+    issuer = object()
+    checked = []
+    lease = ExecutionLease(
+        "l", "r", "a", "v", 1000, {"x": 1}, ("first", "second"),
+        _issuer=issuer, _clock=lambda: 0, _monotonic=lambda: 0.0,
+        _deadline=1.0, _recheck=checked.append,
+    )
+    binding = {"issuer": issuer, "vehicle_id": "v"}
+    assert lease.for_sink("first", {"x": 1}, **binding) is lease
+    with pytest.raises(LeaseError):
+        lease.for_sink("first", {"x": 1}, **binding)
+    with pytest.raises(LeaseError):
+        lease.for_sink("second", {"x": 2}, **binding)
+    lease.revoke()
+    with pytest.raises(LeaseError):
+        lease.for_sink("second", {"x": 1}, **binding)
+    assert checked == ["first"]
 
 
 def test_mission_item_builder_works_with_installed_mavsdk():

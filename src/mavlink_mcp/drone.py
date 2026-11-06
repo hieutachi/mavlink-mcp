@@ -1,15 +1,14 @@
-"""Capability layer facade: guardrails + capability checks over an adapter.
+"""Supported Python facade: every write must use SafetyGateway.
 
-``Drone`` is the single entry point for both surfaces of this project (the
-Python library and the MCP server). It owns all policy: readonly mode,
-explicit confirmation for arming/takeoff, the altitude ceiling, and the
-soft geofence. The adapter underneath only translates already-approved
-operations to its protocol.
+confirm is retained for compatibility, never authorization. Private in-process
+objects are trusted composition, not an isolation boundary (G1, not G2).
 """
 
 from __future__ import annotations
 
 from mavlink_mcp.adapter import DroneAdapter
+from mavlink_mcp.safety.gateway import GatewayResult, SafetyGateway
+from mavlink_mcp.safety.models import Action, PolicyDecision, ReasonCode
 from mavlink_mcp.capabilities import (
     Capability,
     CapabilityNotSupported,
@@ -17,37 +16,41 @@ from mavlink_mcp.capabilities import (
     TelemetrySnapshot,
     Waypoint,
 )
-from mavlink_mcp.guardrails import (
-    GuardrailConfig,
-    GuardrailViolation,
-    haversine_m,
-)
+from mavlink_mcp.guardrails import GuardrailConfig
 
 
 class Drone:
-    """One vehicle, exposed through the vendor-neutral capability API.
-
-    Args:
-        adapter: The backend that talks to the vehicle.
-        guardrails: Fixed guardrail settings. When omitted, settings are
-            re-read from environment variables on every check, so a running
-            server honors ``MAVLINK_MCP_READONLY`` changes without restart.
-    """
+    """Read-only unless composed with a trusted gateway and signed approvals."""
 
     def __init__(
         self,
         adapter: DroneAdapter,
         guardrails: GuardrailConfig | None = None,
+        *,
+        safety_gateway: SafetyGateway | None = None,
     ) -> None:
+        if safety_gateway is not None and safety_gateway.adapter is not adapter:
+            raise ValueError("gateway and facade must share the same adapter")
         self._adapter = adapter
         self._fixed_guardrails = guardrails
+        self._gateway = safety_gateway
 
     @property
-    def adapter(self) -> DroneAdapter:
-        return self._adapter
+    def backend_info(self) -> dict[str, object]:
+        """Safe non-mutating backend descriptor; never exposes raw adapter."""
+        return {"name": self._adapter.name, "protected": self._adapter.protected,
+                "connected": self._adapter.is_connected(), "gateway_configured": self._gateway is not None}
+
+    def simulation_metadata(self, *, advance: bool = True) -> dict[str, object] | None:
+        info = getattr(self._adapter, "simulation_info", None)
+        return info(advance=advance) if info is not None else None
 
     @property
     def guardrails(self) -> GuardrailConfig:
+        if self._gateway is not None:
+            cfg = self._gateway.policy.config
+            return GuardrailConfig(readonly=cfg.readonly or self._gateway.context.principal.readonly,
+                                   max_altitude_m=cfg.max_altitude_m, geofence_radius_m=cfg.max_radius_m)
         if self._fixed_guardrails is not None:
             return self._fixed_guardrails
         return GuardrailConfig.from_env()
@@ -66,69 +69,6 @@ class Drone:
                 f"The '{self._adapter.name}' adapter does not support the "
                 f"'{capability.value}' capability."
             )
-
-    def _require_write(self, operation: str) -> None:
-        if self.guardrails.readonly:
-            raise GuardrailViolation(
-                f"Rejected: {operation} is disabled because readonly mode "
-                "is active (MAVLINK_MCP_READONLY defaults to true). Set "
-                "MAVLINK_MCP_READONLY=false to allow tools that can move "
-                "the vehicle — recommended only against a simulator."
-            )
-
-    @staticmethod
-    def _require_confirmation(operation: str, confirm: bool) -> None:
-        if not confirm:
-            raise GuardrailViolation(
-                f"Rejected: {operation} requires explicit confirmation. "
-                "Ask the human operator to approve, then call again with "
-                "confirm=true. Do not set confirm=true on your own."
-            )
-
-    def _check_altitude(self, altitude_m: float, operation: str) -> None:
-        if altitude_m <= 0:
-            raise GuardrailViolation(
-                f"Rejected: {operation} altitude must be positive "
-                f"(got {altitude_m})."
-            )
-        limit = self.guardrails.max_altitude_m
-        if limit > 0 and altitude_m > limit:
-            raise GuardrailViolation(
-                f"Rejected: {operation} altitude {altitude_m} m exceeds the "
-                f"configured ceiling of {limit} m "
-                "(MAVLINK_MCP_MAX_ALTITUDE_M)."
-            )
-
-    async def _check_geofence(
-        self, waypoints: list[Waypoint], operation: str
-    ) -> None:
-        radius = self.guardrails.geofence_radius_m
-        if radius <= 0:
-            return
-        home = await self._adapter.get_home()
-        if home is None:
-            raise GuardrailViolation(
-                f"Rejected: {operation} — the soft geofence is enabled "
-                f"({radius} m around home) but the vehicle has not reported "
-                "a home position yet, so the target cannot be verified. "
-                "Wait for a GPS fix, or set MAVLINK_MCP_GEOFENCE_RADIUS_M=0 "
-                "to disable the geofence (not recommended)."
-            )
-        for wp in waypoints:
-            distance = haversine_m(
-                home.latitude_deg,
-                home.longitude_deg,
-                wp.latitude_deg,
-                wp.longitude_deg,
-            )
-            if distance > radius:
-                raise GuardrailViolation(
-                    f"Rejected: {operation} target "
-                    f"({wp.latitude_deg}, {wp.longitude_deg}) is "
-                    f"{distance:.0f} m from home, outside the "
-                    f"{radius:.0f} m soft geofence "
-                    "(MAVLINK_MCP_GEOFENCE_RADIUS_M)."
-                )
 
     async def _ensure_connected(self) -> None:
         if not self._adapter.is_connected():
@@ -157,69 +97,39 @@ class Drone:
     # Action capabilities (rejected in readonly mode)
     # ------------------------------------------------------------------ #
 
-    async def arm(self, confirm: bool = False) -> None:
-        self._require_capability(Capability.ARM_DISARM)
-        self._require_write("arm")
-        self._require_confirmation("arm", confirm)
-        await self._ensure_connected()
-        await self._adapter.arm()
+    async def _execute(self, action, capability, parameters, *, request_id=None, approval_token=None):
+        self._require_capability(capability)
+        if self._gateway is None:
+            reason = ReasonCode.READONLY if self.guardrails.readonly else ReasonCode.GATEWAY_UNAVAILABLE
+            return GatewayResult(PolicyDecision.DENY, reason, request_id)
+        return await self._gateway.execute(action, parameters, request_id=request_id, approval_token=approval_token)
 
-    async def disarm(self) -> None:
-        self._require_capability(Capability.ARM_DISARM)
-        self._require_write("disarm")
-        await self._ensure_connected()
-        await self._adapter.disarm()
+    async def arm(self, confirm: bool = False, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.ARM, Capability.ARM_DISARM, {}, request_id=request_id, approval_token=approval_token)
 
-    async def takeoff(self, altitude_m: float, confirm: bool = False) -> None:
-        self._require_capability(Capability.TAKEOFF)
-        self._require_write("takeoff")
-        self._require_confirmation("takeoff", confirm)
-        self._check_altitude(altitude_m, "takeoff")
-        await self._ensure_connected()
-        await self._adapter.takeoff(altitude_m)
+    async def disarm(self, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.DISARM, Capability.ARM_DISARM, {}, request_id=request_id, approval_token=approval_token)
 
-    async def land(self) -> None:
-        self._require_capability(Capability.LAND)
-        self._require_write("land")
-        await self._ensure_connected()
-        await self._adapter.land()
+    async def takeoff(self, altitude_m: float, confirm: bool = False, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.TAKEOFF, Capability.TAKEOFF, {"altitude_m": altitude_m}, request_id=request_id, approval_token=approval_token)
 
-    async def hold(self) -> None:
-        self._require_capability(Capability.FLIGHT_MODE)
-        self._require_write("hold")
-        await self._ensure_connected()
-        await self._adapter.hold()
+    async def land(self, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.LAND, Capability.LAND, {}, request_id=request_id, approval_token=approval_token)
 
-    async def return_to_launch(self) -> None:
-        self._require_capability(Capability.RETURN_TO_LAUNCH)
-        self._require_write("return_to_launch")
-        await self._ensure_connected()
-        await self._adapter.return_to_launch()
+    async def hold(self, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.HOLD, Capability.FLIGHT_MODE, {}, request_id=request_id, approval_token=approval_token)
 
-    async def goto(
-        self,
-        latitude_deg: float,
-        longitude_deg: float,
-        relative_altitude_m: float,
-        yaw_deg: float = 0.0,
-    ) -> None:
-        self._require_capability(Capability.GOTO)
-        self._require_write("goto")
-        self._check_altitude(relative_altitude_m, "goto")
-        waypoint = Waypoint(latitude_deg, longitude_deg, relative_altitude_m)
-        await self._ensure_connected()
-        await self._check_geofence([waypoint], "goto")
-        await self._adapter.goto(waypoint, yaw_deg=yaw_deg)
+    async def return_to_launch(self, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.RETURN_TO_LAUNCH, Capability.RETURN_TO_LAUNCH, {}, request_id=request_id, approval_token=approval_token)
 
-    async def fly_mission(self, waypoints: list[Waypoint]) -> None:
-        self._require_capability(Capability.MISSION)
-        self._require_write("fly_mission")
-        if not waypoints:
-            raise GuardrailViolation(
-                "Rejected: fly_mission requires at least one waypoint."
-            )
-        for wp in waypoints:
-            self._check_altitude(wp.relative_altitude_m, "fly_mission")
-        await self._ensure_connected()
-        await self._check_geofence(waypoints, "fly_mission")
-        await self._adapter.fly_mission(waypoints)
+    async def goto(self, latitude_deg: float, longitude_deg: float, relative_altitude_m: float,
+                   yaw_deg: float = 0.0, *, request_id=None, approval_token=None) -> GatewayResult:
+        return await self._execute(Action.GOTO, Capability.GOTO,
+            {"latitude_deg": latitude_deg, "longitude_deg": longitude_deg,
+             "relative_altitude_m": relative_altitude_m, "yaw_deg": yaw_deg},
+            request_id=request_id, approval_token=approval_token)
+
+    async def fly_mission(self, waypoints: list[Waypoint], *, request_id=None, approval_token=None) -> GatewayResult:
+        # execute copies caller-owned waypoints before the first await.
+        return await self._execute(Action.FLY_MISSION, Capability.MISSION, {"waypoints": waypoints},
+                                   request_id=request_id, approval_token=approval_token)

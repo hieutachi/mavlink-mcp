@@ -1,0 +1,200 @@
+{
+  "audit_date": "2026-11-05",
+  "head": "fb0324d7298da2f9659780a223fb79bd6747b6ef",
+  "git_status_before": " M README.md\n M docs/simulator-quickstart.md\n M src/mavlink_mcp/drone.py\n M src/mavlink_mcp/guardrails.py\n M src/mavlink_mcp/server.py\n M tests/test_guardrails.py\n M tests/test_server_tools.py\n?? examples/patrol_sim.py\n?? src/mavlink_mcp/adapters/sim_adapter.py\n?? tests/test_sim_adapter.py\n?? tests/test_stdio_sim.py\n",
+  "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+  "dependencies": {
+    "fastmcp": "2.14.7",
+    "mcp": "1.29.0",
+    "mavsdk": "3.17.2",
+    "pydantic": "2.13.4",
+    "grpcio": "1.83.0",
+    "cryptography": "50.0.0",
+    "pytest": "8.4.2",
+    "pytest-asyncio": "1.4.0"
+  },
+  "verification": {
+    "pytest_command": ".venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider",
+    "pytest_result": "93 passed, 1 warning in 6.55s",
+    "warning": "AuthlibDeprecationWarning: authlib.jose deprecated; emitted by fastmcp/server/auth/providers/jwt.py:10",
+    "pip_check": "No broken requirements found.",
+    "sitl_run": false,
+    "hardware_run": false,
+    "github_baseline_tests_run": false
+  },
+  "documentation_checks": {
+    "original_file_hashes_unchanged": 31,
+    "audit_findings": 14,
+    "security_invariants": 14,
+    "implementation_packets": 18,
+    "required_adversarial_scenario_ids": 25,
+    "relative_links_checked": true,
+    "code_fences_balanced": true,
+    "implementation_executed": false
+  },
+  "mock_probe_results": {
+    "scope": "In-memory tests.conftest.MockAdapter only; no MAVSDK connection or real vehicle",
+    "boolean_confirmation": {"calls": ["connect", "arm"], "finding": "F01"},
+    "airborne_disarm_missing_health": {"calls": ["connect", "disarm"], "telemetry_read": false, "finding": "F04"},
+    "raw_adapter_from_readonly_facade": {"calls": ["arm"], "finding": "F02"},
+    "mission_list_changed_during_connect": {"calls": ["connect", "get_home", "fly_mission"], "sent_altitude_m": 999, "ceiling_m": 50, "finding": "F03"},
+    "boolean_altitude_direct_api": {"calls": ["connect", "takeoff"], "sent_value": true, "finding": "F10"}
+  },
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "f78b074f7e1fafc7631be1a7106d74861c090b683114a20d272bc5abf3aa36ab",
+      "bytes": 320
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "230a6da2db6c9f3437dc318a4fe96c031c1e2a69660263eaeb8b06d371a47311",
+      "bytes": 1003
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "cd8b87f1a95a50b25a5c6f81d6882c3010e110f26347658ad7bebb1972ab44e2",
+      "bytes": 2761
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "83f81badd026a168960722de3583577f653e1f6fc06bbe2cebaf5cef6570d93f",
+      "bytes": 2499
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "ce9e638687a4c7731f4803ae0cc898b1d0cd6b882b9289d6b95f6664562cbea9",
+      "bytes": 1081
+    },
+    {
+      "path": "README.md",
+      "sha256": "b41555d205f092f2a3135208a9b5a1c136ad8ddc85fa94afd5759322dbb902ee",
+      "bytes": 12974
+    },
+    {
+      "path": "ROADMAP.md",
+      "sha256": "1c861820aa751613e8bd75fcd37dda6b7f4ead128c7dfd85990eadf5b6725a28",
+      "bytes": 4645
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "d9a6e1c3f5edc23b9d328a2d8fcb09379c9c87d9e2aa576e386ddb6acd6da8ee",
+      "bytes": 3009
+    },
+    {
+      "path": "docs/simulator-quickstart.md",
+      "sha256": "62727c08cec2751f647c416c6e1956b0e9ac0a43c42b0657e98a25341722be51",
+      "bytes": 7514
+    },
+    {
+      "path": "examples/cursor_mcp.json",
+      "sha256": "1c751877ba2bfd559efb8bcacb3dbe572577f3ae2973c628ddf2b3a715995d6c",
+      "bytes": 300
+    },
+    {
+      "path": "examples/patrol_sim.py",
+      "sha256": "41dfa0332166c118b893edb0abd9ba5c6aa692ae8f341292fee9d1d9bf3f96cc",
+      "bytes": 4344
+    },
+    {
+      "path": "examples/patrol_sitl.py",
+      "sha256": "bf9a9913f4b66f14e257b9538c905846257d83881f3348973ec39c8b96a131d3",
+      "bytes": 3279
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "8ba594d92cd6aec060ebe89f64e7bebf5a810f67d31d3b0955da494daec4b112",
+      "bytes": 1616
+    },
+    {
+      "path": "src/mavlink_mcp/__init__.py",
+      "sha256": "4663060e2fb22572e1b6e6daf2873bd772d75f6325c640df1dfdee903ac8a8d1",
+      "bytes": 1173
+    },
+    {
+      "path": "src/mavlink_mcp/__main__.py",
+      "sha256": "0d44ef833e440e16107dca1c982d5f31577e5315617723ed50d8912d698d4d9c",
+      "bytes": 143
+    },
+    {
+      "path": "src/mavlink_mcp/adapter.py",
+      "sha256": "a58a460380ebe9b4c6bde040a023f570b2479fb65fb43520027e87fa06e5e5a1",
+      "bytes": 3413
+    },
+    {
+      "path": "src/mavlink_mcp/adapters/__init__.py",
+      "sha256": "bfd61f8c886c2d1f374edcb90026e8029565cf7323851549ac51ac2572170eb9",
+      "bytes": 287
+    },
+    {
+      "path": "src/mavlink_mcp/adapters/mavsdk_adapter.py",
+      "sha256": "4bfe4536af176a4a98a0096e4bdeb376c82dcb00318af82bd77cf30c0417f2bd",
+      "bytes": 10840
+    },
+    {
+      "path": "src/mavlink_mcp/adapters/sim_adapter.py",
+      "sha256": "ec3d7b06d79ee7e6469ec1ca42d21fce37611c8aba42603baf810631ab62e892",
+      "bytes": 10272
+    },
+    {
+      "path": "src/mavlink_mcp/capabilities.py",
+      "sha256": "41e83dee6a18930a0c64298dd4cbfd5db115152efcfc8c934e0078261aa4155a",
+      "bytes": 2326
+    },
+    {
+      "path": "src/mavlink_mcp/drone.py",
+      "sha256": "3102860468f2cd33bcc822d8937c5f82949ad99463597dc5f68ecce623c53cf0",
+      "bytes": 9974
+    },
+    {
+      "path": "src/mavlink_mcp/guardrails.py",
+      "sha256": "e0578027b38f371452dba0336183639d0310cdc3d2f70277f87c4e06990fa1e0",
+      "bytes": 4064
+    },
+    {
+      "path": "src/mavlink_mcp/server.py",
+      "sha256": "04e7817f166045a2e0403bb4823a4f4e6fc8feb595a861bbdbcfb66ca230a5e0",
+      "bytes": 12930
+    },
+    {
+      "path": "tests/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "tests/conftest.py",
+      "sha256": "4fce63da930f33c42f3217b4cd214168bea28c59e6ac19043ed8c7b6b7474779",
+      "bytes": 3645
+    },
+    {
+      "path": "tests/test_capability_layer.py",
+      "sha256": "7559fa3b49665732d728d0e4be5d517ef86585db3afbb28d85853e6edc9b7124",
+      "bytes": 2676
+    },
+    {
+      "path": "tests/test_guardrails.py",
+      "sha256": "2537428986f1795cac6ba4d0eada3d95e2f198c8fc83a2cdab881811069f4230",
+      "bytes": 10396
+    },
+    {
+      "path": "tests/test_mavsdk_adapter.py",
+      "sha256": "5f87948de6ef0f7fb5ba3fb991f5196440d680a4754b782efc1c9210ead58384",
+      "bytes": 2062
+    },
+    {
+      "path": "tests/test_server_tools.py",
+      "sha256": "e22e39f593d50ff02eaf875b4c325bfc4954b27c799bd7af81ec8722382cd6b9",
+      "bytes": 6323
+    },
+    {
+      "path": "tests/test_sim_adapter.py",
+      "sha256": "cda070d561f29543155cbdb2bdf264662b929ce0ab48e66f87878cc07fcca007",
+      "bytes": 8966
+    },
+    {
+      "path": "tests/test_stdio_sim.py",
+      "sha256": "81ad4d148b9f55c2c0a9c0493ceda77dbd274a0675e4efbb65b4e80a51784d0d",
+      "bytes": 753
+    }
+  ]
+}
