@@ -177,6 +177,21 @@ assert result.execution_status == "ACKNOWLEDGED"   # accepted, not completed
 A complete runnable version, including an ephemeral operator key and the
 refusal cases, is [examples/patrol_sim.py](examples/patrol_sim.py).
 
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [INSTALLATION.md](docs/INSTALLATION.md) | Tiered setup: tests, kinematic demo, PX4 SITL |
+| [DEMO_GUIDE.md](docs/DEMO_GUIDE.md) | Three scenarios with real transcripts |
+| [SECURITY_ANALYSIS.md](docs/SECURITY_ANALYSIS.md) | Each claim mapped to a test, and what is not claimed |
+| [THREAT_MODEL.md](docs/THREAT_MODEL.md) | Adversaries, trust boundaries, attack tree |
+| [ADVERSARIAL_TESTS.md](docs/ADVERSARIAL_TESTS.md) | T01-T25 mapped to running tests |
+| [BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md) | 2,340 trials against the pre-gateway guardrails |
+| [SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md) | Recorded run against headless PX4 |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Component design |
+
+For the competition submission, see [submission/](submission/).
+
 ## Privacy & legal
 
 **No telemetry, no data collection.** The only network connection this package opens is the MAVLink endpoint you configure (`MAVLINK_MCP_URL`). Vehicle data returned by tools goes exclusively to your MCP client.
