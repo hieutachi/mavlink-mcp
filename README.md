@@ -11,6 +11,37 @@ It is the sister project of [rosbridge-mcp](https://github.com/hieutachi/rosbrid
 
 > **Safety disclaimer:** this project is built for **simulation and research**. Flying real aircraft with it is entirely at your own risk and responsibility, including compliance with your local aviation law (registration, flight permits, pilot licensing). See [SECURITY.md](SECURITY.md).
 
+## Measured against its own previous guardrails
+
+Two real code arms, the same scenarios, the same recording adapter. 2,340
+trials, Wilson 95% intervals, raw data in [`benchmark/results/`](benchmark/results/).
+An action counts as *prevented* only if no physical sink was invoked and the
+simulated vehicle did not change state — a refusal message after the command
+was already sent is a failure. No language model participates in any decision.
+
+| | Original guardrails (`962448c`) | SafeMAV gateway (`7055a49`) |
+| --- | --- | --- |
+| Unauthorized execution | 82.6% [79.6–85.3] | **4.3%** [3.1–6.1] |
+| Unauthorized takeoff | 66.7% [59.5–73.1] | **0%** [0–2.1] |
+| Approval replay accepted | 100% | **0%** |
+| Parameter tampering accepted | 100% | **0%** |
+| Degraded-telemetry execution | 100% | **0%** |
+| Policy bypass | 100% | **14.3%** |
+| **False rejection, legitimate ops** | **0%** | **0%** |
+| Authorization latency (median) | 0.002 ms | 18.2 ms |
+
+The last two rows matter as much as the first. Zero false rejection means the
+attack numbers were not bought by refusing work — a deny-everything
+configuration, measured as a control arm, scores 100% false rejection and
+*still* lets 13% of unauthorized calls through. The residual 4.3% and 14.3% are
+one known gap, published rather than hidden: in-process Python that reads the
+gateway's private issuer object can forge a lease. It fails on both arms, it
+has [a test that asserts it](tests/safety/test_bypass_attempts.py), and closing
+it needs OS-level isolation this project does not implement.
+
+Full method, per-subcase verdicts and what could not be measured:
+[BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md).
+
 ## Why a capability layer, not another SDK?
 
 - **For AI agents, capabilities beat 400 SDK functions.** An agent asks `get_capabilities` ("what can this drone do?"), gets back a small vocabulary of physical actions, and plans with it — no MAVLink knowledge needed on the model side.
@@ -19,17 +50,80 @@ It is the sister project of [rosbridge-mcp](https://github.com/hieutachi/rosbrid
 
 ## Architecture
 
-```text
-+--------------------+  stdio (MCP)  +----------------------------------+  MAVLink (UDP)  +------------------+
-|  AI client         | <-----------> | mavlink-mcp                      | <-------------> | PX4 / ArduPilot  |
-|  (Claude, Cursor,  |               |  MCP server                      |     via         |  SITL or real FC |
-|   VS Code, ...)    |               |   └─ capability layer + policy   |    MAVSDK       |  (Pixhawk-class) |
-+--------------------+               |       └─ MAVSDK adapter          |    (BSD-3)      +------------------+
-                                     +----------------------------------+
-Python scripts use the same capability layer directly (mavlink_mcp.Drone).
+```mermaid
+flowchart LR
+    subgraph untrusted["Untrusted — may be adversarial"]
+        agent["AI client<br/>Claude · Cursor · VS Code"]
+        script["Python script<br/>mavlink_mcp.Drone"]
+    end
+
+    subgraph process["mavlink-mcp process"]
+        mcp["MCP server<br/>12 tools"]
+        facade["Capability layer (Drone)<br/>thin facade, no authority"]
+        gw["SafetyGateway<br/>policy · approvals · leases"]
+        ledger[("Hash-chained<br/>SQLite ledger")]
+        adapter["MavsdkAdapter<br/>refuses writes without a lease"]
+    end
+
+    operator["Human operator<br/>safemav-operator approve"]
+    fc["PX4 / ArduPilot<br/>SITL or Pixhawk-class"]
+
+    agent -- stdio --> mcp --> facade --> gw
+    script --> facade
+    gw <--> ledger
+    gw -- "ExecutionLease<br/>per sink" --> adapter
+    adapter -- "MAVLink / UDP<br/>via MAVSDK" --> fc
+    gw -. "approval request" .-> operator
+    operator -. "Ed25519 signature<br/>out of band" .-> agent
+
+    classDef bad fill:#fde8e8,stroke:#c23030
+    classDef good fill:#e8f5e9,stroke:#2e7d32
+    class agent,script bad
+    class gw,operator good
 ```
 
+Telemetry reads flow back the same way without needing approval. Python scripts
+use the identical capability layer, so there is no privileged side door: a
+`Drone` built without a gateway cannot write at all.
+
 The **safety gateway** owns all authorization — signed approvals, replay protection, telemetry freshness, altitude and geofence limits, and the audit ledger. The **capability layer** (`Drone`) is a thin facade over it. The **adapter** (`MavsdkAdapter`) only translates approved operations to MAVLink and refuses any write without a valid execution lease; it is the only module that imports `mavsdk`. New backends implement the same `DroneAdapter` interface and inherit both surfaces (MCP tools + Python library) and every guardrail for free.
+
+### What a takeoff actually costs the agent
+
+`takeoff` touches two MAVSDK sinks, so authority is verified twice — once per
+physical write, with no `await` between the check and the call.
+
+```mermaid
+sequenceDiagram
+    participant A as AI agent
+    participant G as SafetyGateway
+    participant H as Human operator
+    participant D as MAVSDK adapter
+    participant V as Autopilot
+
+    A->>G: takeoff(altitude=20)
+    G->>G: admission — policy, state, telemetry freshness
+    G-->>A: REQUIRE_APPROVAL + request_id, nonce, digest
+    Note over A,H: the agent cannot sign; the key is never in this process
+    A->>H: shows the exact request
+    H->>H: reviews altitude, vehicle, expiry
+    H-->>A: Ed25519 token bound to this request only
+    A->>G: takeoff(20, request_id, approval_token)
+    G->>G: verify signature, nonce unspent, parameters byte-identical
+    G->>D: lease(sink 1 of 2)
+    D->>V: set_takeoff_altitude(20000 mm)
+    G->>G: re-check deadline, epochs, policy hash, operator key, ledger
+    G->>D: lease(sink 2 of 2)
+    D->>V: takeoff()
+    G-->>A: ACKNOWLEDGED — accepted by the autopilot, not "landed safely"
+```
+
+If anything changes between sink 1 and sink 2 — the approval expires, telemetry
+goes stale, home or the connection epoch shifts, the policy file changes, the
+operator key loses scope, the ledger becomes unwritable — the second sink does
+not run and the request is recorded `UNKNOWN`, which latches the writer closed
+across process restarts. Replaying the token afterwards returns
+`APPROVAL_REPLAY` with zero sinks.
 
 ## Quick Start
 
@@ -189,6 +283,7 @@ refusal cases, is [examples/patrol_sim.py](examples/patrol_sim.py).
 | [BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md) | 2,340 trials against the pre-gateway guardrails |
 | [SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md) | Recorded run against headless PX4 |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Component design |
+| [site/index.html](site/index.html) | One-page showcase: interactive attack replay, measured results, links to every artifact (open locally, or publish the `site/` folder with GitHub Pages) |
 
 For the competition submission, see [submission/](submission/).
 

@@ -10,8 +10,8 @@ Three levels, each self-contained. Stop at the one you need.
 
 Everything here was run on the host recorded in
 [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md): Windows 11, Python 3.13.3, and
-Ubuntu 22.04 under WSL2 for level C. Commands are shown for that setup; adjust
-paths for your shell.
+Ubuntu 22.04 under WSL2 for level C. Every command below assumes the virtual
+environment is activated and works unchanged on Linux, macOS and Windows.
 
 ## A. Environment and tests
 
@@ -21,8 +21,8 @@ cd mavlink-mcp
 git checkout safemav/p08-p09-gateway
 
 python -m venv .venv
-.venv/Scripts/python.exe -m pip install -e ".[dev]"    # Windows
-# .venv/bin/python -m pip install -e ".[dev]"          # Linux/macOS
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
 ```
 
 Dependencies, all permissively licensed: `fastmcp>=2,<3` (Apache-2.0),
@@ -30,7 +30,7 @@ Dependencies, all permissively licensed: `fastmcp>=2,<3` (Apache-2.0),
 project deliberately avoids pymavlink (LGPL-3).
 
 ```bash
-.venv/Scripts/python.exe -m pytest -q
+python -m pytest -q
 ```
 
 Expected: `744 passed, 1 warning`. The warning is an Authlib deprecation
@@ -40,8 +40,9 @@ No test opens a network socket or connects to MAVSDK. One test spawns a real
 MCP server subprocess over stdio against the kinematic simulator.
 
 **If tests fail.** A wrong interpreter is the usual cause — `pytest` from a
-global install will not see the package. Always invoke through the venv
-interpreter as shown. `cryptography` must import successfully; without it
+global install will not see the package. Activate the venv first, or call its
+interpreter directly (`.venv/bin/python` on Linux/macOS,
+`.venv\Scripts\python.exe` on Windows). `cryptography` must import successfully; without it
 approval signing cannot work and roughly 300 tests fail.
 
 ## B. Kinematic demo, no autopilot
@@ -50,7 +51,7 @@ The bundled simulator is a network-free kinematic model. It is a demonstration
 vehicle, not evidence about flight safety.
 
 ```bash
-.venv/Scripts/python.exe examples/patrol_sim.py
+python examples/patrol_sim.py
 ```
 
 This launches its own MCP server subprocess, generates a throwaway operator
@@ -77,7 +78,7 @@ write. That is the default, and `MAVLINK_MCP_READONLY=false` does not change it.
 Create an operator keypair. The private half never goes near the server:
 
 ```bash
-.venv/Scripts/python.exe -m mavlink_mcp.operator_cli keygen \
+python -m mavlink_mcp.operator_cli keygen \
     --output operator.key --key-id demo-key --operator-id alice
 ```
 
@@ -142,6 +143,8 @@ Claude Desktop or any MCP client:
 }
 ```
 
+On Linux or macOS the interpreter is `/path/to/mavlink-mcp/.venv/bin/python`.
+
 Twelve tools appear: `get_capabilities`, `get_telemetry`, `get_flight_mode`,
 `get_connection_status`, `arm`, `disarm`, `takeoff`, `land`, `hold`,
 `return_to_launch`, `goto_location`, `fly_mission`.
@@ -198,9 +201,9 @@ For an MCP server against SITL, use `MAVLINK_MCP_BACKEND=mavsdk`,
 ## Benchmark
 
 ```bash
-.venv/Scripts/python.exe benchmark/verify_baseline.py    # provenance check
-.venv/Scripts/python.exe benchmark/runner.py             # ~2 min
-.venv/Scripts/python.exe tools/verify_benchmark.py       # recompute from raw data
+python benchmark/verify_baseline.py    # provenance check
+python benchmark/runner.py             # ~2 min
+python tools/verify_benchmark.py       # recompute from raw data
 ```
 
 The first verifies the reconstructed baseline against git and exits non-zero if
@@ -243,13 +246,13 @@ Three checks a reviewer can run that are designed to fail when they should:
 
 ```bash
 # 1. the baseline reconstruction matches git
-.venv/Scripts/python.exe benchmark/verify_baseline.py
+python benchmark/verify_baseline.py
 
 # 2. reported rates reproduce from raw trial data
-.venv/Scripts/python.exe tools/verify_benchmark.py
+python tools/verify_benchmark.py
 
 # 3. the documented bypass gap is still exactly one case
-.venv/Scripts/python.exe -m pytest -q tests/safety/test_bypass_attempts.py -v
+python -m pytest -q tests/safety/test_bypass_attempts.py -v
 ```
 
 Check 3 includes `test_known_gap_same_process_issuer_theft_is_not_prevented`,

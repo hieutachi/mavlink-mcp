@@ -5,7 +5,7 @@ SafeMAV gateway on identical attack scenarios. Every number below comes from
 `benchmark/results/`; nothing here is estimated, projected, or carried over
 from architecture documents.
 
-Run ID `bench-20261106T041020Z`. All numbers are reproducible from the raw data
+Run ID `bench-20261106T042343Z`. All numbers are reproducible from the raw data
 in `benchmark/results/trials.jsonl` (2 160 measured trials + 180 control
 trials).
 
@@ -84,8 +84,8 @@ different from the one a human sanctioned. Each such trial carries an
 
 ```bash
 # from the repository root, on branch safemav/p08-p09-gateway at 7055a49
-.venv/Scripts/python.exe benchmark/verify_baseline.py   # provenance check
-.venv/Scripts/python.exe benchmark/runner.py            # ~2 min, writes results/
+python benchmark/verify_baseline.py   # provenance check
+python benchmark/runner.py            # ~2 min, writes results/
 ```
 
 Outputs: `trials.jsonl` (one record per trial), `summary.json` (aggregates with
@@ -282,8 +282,8 @@ on the approved `arm` path.
 | Arm | Stage | n | Median | p95 | p99 |
 | --- | --- | --- | --- | --- | --- |
 | `baseline_962448c` | total machine path | 120 | **0.0021 ms** | 0.0025 ms | 0.0037 ms |
-| `safemav_7055a49` | authorization (verify + ledger claim + dispatch) | 120 | **13.48 ms** | 16.80 ms | 74.87 ms |
-| `safemav_7055a49` | total machine path | 120 | **18.41 ms** | 23.72 ms | 236.96 ms |
+| `safemav_7055a49` | authorization (verify + ledger claim + dispatch) | 120 | **13.38 ms** | 16.32 ms | 27.74 ms |
+| `safemav_7055a49` | total machine path | 120 | **18.23 ms** | 21.56 ms | 40.54 ms |
 
 The gateway costs about **18 ms** median versus **2 µs** for the baseline, a
 roughly 8 800x increase on a path that previously did almost nothing.
@@ -291,16 +291,17 @@ roughly 8 800x increase on a path that previously did almost nothing.
 The cost is durable-storage fsync, not cryptography. Measured separately on
 this host: Ed25519 verification median **48 µs**; one `synchronous=FULL` SQLite
 audit event median **4.1 ms**, p95 6.4 ms. The approved path writes several
-such events. The p99 outliers (75 ms, 237 ms) are filesystem stalls, and this
-ledger sits on a OneDrive-synchronized directory, which plausibly inflates the
-tail. Treat p99 as host noise rather than a property of the design.
+such events. The p99 values (28 ms, 41 ms) and the single 0.6 s maximum are
+filesystem stalls, and this ledger sits on a OneDrive-synchronized directory,
+which plausibly inflates the tail. Treat the tail as host noise rather than a
+property of the design.
 
 ### 8. Policy evaluation latency
 
 | Arm | n | Median | p95 | p99 |
 | --- | --- | --- | --- | --- |
 | `baseline_962448c` | 120 | 0.0021 ms (not separable) | 0.0025 ms | 0.0037 ms |
-| `safemav_7055a49` | 120 | **4.51 ms** | 5.14 ms | 7.41 ms |
+| `safemav_7055a49` | 120 | **4.49 ms** | 5.36 ms | 13.11 ms |
 
 For the baseline these stages **cannot be separated**: there is no approval
 step, so policy evaluation *is* the whole machine path. The number is repeated
@@ -438,7 +439,7 @@ run. Verified by tampering: editing a single rate in `summary.json` to look
 better than the data makes it exit 1 and name the metric.
 
 ```
-$ .venv/Scripts/python.exe tools/verify_benchmark.py
+$ python tools/verify_benchmark.py
 ...
   OK unauthorized_action_execution    safemav_7055a49   reported=0.043478 recomputed=0.043478 n=690
   OK policy_bypass                    safemav_7055a49   reported=0.142857 recomputed=0.142857 n=210

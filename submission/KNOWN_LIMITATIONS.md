@@ -121,7 +121,7 @@ during development (§11).
 - **Clustered trials.** 30 trials of a deterministic check is one mechanism
   observed 30 times, not 30 independent experiments. Wilson intervals describe
   sampling variability within this suite, not accident probability.
-- **Latency is in-process.** 13.5 ms median excludes human approval time,
+- **Latency is in-process.** 13.4 ms median excludes human approval time,
   network, autopilot and airframe response. The p99 tail is filesystem stalls;
   the ledger sat on a cloud-synchronized directory.
 - **Semantic equivalence for the baseline.** The baseline has no token, nonce

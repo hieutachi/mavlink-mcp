@@ -40,10 +40,10 @@ Không chạy `examples/patrol_sitl.py`, không khởi động PX4, không gọi
 ### 2.3 Kiểm tra đã thực sự chạy
 
 ```text
-.venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider
+python -B -m pytest -q -p no:cacheprovider
 93 passed, 1 warning in 6.55s
 
-.venv/Scripts/python.exe -B -m pip check
+python -B -m pip check
 No broken requirements found.
 ```
 

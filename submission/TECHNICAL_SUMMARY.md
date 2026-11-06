@@ -177,7 +177,7 @@ increments the home epoch and invalidates outstanding approvals.
 | Degraded-state execution | 100% | 0% |
 | Envelope violations | 0% | 0% |
 | False rejection | 0% | 0% |
-| Authorization latency | 0.002 ms | 13.5 ms median |
+| Authorization latency | 0.002 ms | 13.4 ms median |
 
 2,340 trials. Prevention requires no sink invoked and no state change.
 

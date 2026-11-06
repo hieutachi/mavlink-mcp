@@ -8,7 +8,7 @@ Setup is [INSTALLATION.md](INSTALLATION.md) level B (five minutes) or level C
 for a real autopilot. If you have fifteen seconds and want one command:
 
 ```bash
-.venv/Scripts/python.exe examples/patrol_sim.py
+python examples/patrol_sim.py
 ```
 
 That runs all three scenarios end to end, prints a JSON trace, and verifies the
@@ -30,7 +30,7 @@ approval request, not an action.
 Generate an operator keypair. The private half never goes near the server:
 
 ```bash
-.venv/Scripts/python.exe -m mavlink_mcp.operator_cli keygen \
+python -m mavlink_mcp.operator_cli keygen \
     --output op.key --key-id demo-key --operator-id alice
 ```
 
@@ -45,6 +45,12 @@ Put only the public key into `cfg.json` (full template in
 ```bash
 export SAFEMAV_CONFIG=cfg.json MAVLINK_MCP_BACKEND=sim
 ```
+
+## The one-page version
+
+[`site/index.html`](../site/index.html) is a self-contained showcase of the same material: the measured
+comparison, the architecture, the threat coverage grid and an interactive replay of seven attacks against
+the gateway. It is a convenience surface for reviewers, not evidence — the transcripts below are.
 
 ## Scenario A — telemetry, no friction
 
@@ -134,7 +140,7 @@ Same action, now with a human in the loop.
 ### C1. The operator reviews the exact request
 
 ```bash
-.venv/Scripts/python.exe -m mavlink_mcp.operator_cli review review.json
+python -m mavlink_mcp.operator_cli review review.json
 ```
 
 ```json
@@ -167,7 +173,7 @@ agent could have written.
 ### C2. The operator signs
 
 ```bash
-.venv/Scripts/python.exe -m mavlink_mcp.operator_cli approve review.json \
+python -m mavlink_mcp.operator_cli approve review.json \
     --key op.key --key-id demo-key --operator-id alice --output token.txt
 ```
 
@@ -263,7 +269,7 @@ automatic landing.
 Run it:
 
 ```bash
-.venv/Scripts/python.exe -m pytest -q tests/safety/test_gateway_outcomes.py -v
+python -m pytest -q tests/safety/test_gateway_outcomes.py -v
 ```
 
 Eight failure modes × two multi-sink actions, plus an uncooperative task that
@@ -272,7 +278,7 @@ ignores cancellation.
 ## The audit trail
 
 ```bash
-.venv/Scripts/python.exe -c "
+python -c "
 import sys; sys.path.insert(0,'src')
 from mavlink_mcp.safety.store import SafetyStore
 with SafetyStore('ledger.sqlite3') as s:

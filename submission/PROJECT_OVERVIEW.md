@@ -116,6 +116,7 @@ flight drops the aircraft.
 | Adversarial coverage | [ADVERSARIAL_TESTS.md](../docs/ADVERSARIAL_TESTS.md): T01–T25 mapped to running tests |
 | Security properties | [SECURITY_ANALYSIS.md](../docs/SECURITY_ANALYSIS.md): claim-by-claim, with limits |
 | Threat model | [THREAT_MODEL.md](../docs/THREAT_MODEL.md): STRIDE, attack tree, G1/G2 |
+| One-page walkthrough | [site/index.html](../site/index.html): interactive attack replay over the same measured reason codes, with deep links into every artifact above |
 | Reproduction | [INSTALLATION.md](../docs/INSTALLATION.md), [DEMO_GUIDE.md](../docs/DEMO_GUIDE.md) |
 
 **The prevention criterion**, applied uniformly: an action counts as prevented
@@ -135,7 +136,7 @@ decision or in the benchmark.
 | Degraded-telemetry execution | 100% | 0% |
 | **False rejection, legitimate ops** | **0%** | **0%** |
 
-Authorization costs 13.5 ms median, dominated by ledger fsync (4.1 ms/event),
+Authorization costs 13.4 ms median, dominated by ledger fsync (4.1 ms/event),
 not signature verification (48 µs).
 
 ## What this does not claim
@@ -171,11 +172,12 @@ the benchmark says so.
 ```bash
 git clone https://github.com/hieutachi/mavlink-mcp.git
 cd mavlink-mcp && git checkout safemav/p08-p09-gateway
-python -m venv .venv && .venv/Scripts/python.exe -m pip install -e ".[dev]"
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
 
-.venv/Scripts/python.exe -m pytest -q              # 744 passed
-.venv/Scripts/python.exe examples/patrol_sim.py    # full approval flow over MCP stdio
-.venv/Scripts/python.exe tools/verify_benchmark.py # recompute every rate from raw data
+python -m pytest -q              # 744 passed
+python examples/patrol_sim.py    # full approval flow over MCP stdio
+python tools/verify_benchmark.py # recompute every rate from raw data
 ```
 
 The third command recomputes all 18 benchmark rates from the committed raw

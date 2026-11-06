@@ -126,7 +126,7 @@ a deny-everything configuration is not a solution: the readonly control arm
 scores 100% false rejection while still leaking 13% of unauthorized executions,
 because `readonly` is a facade flag that direct adapter calls ignore.
 
-Authorization costs 13.5 ms median, dominated by ledger fsync (4.1 ms/event),
+Authorization costs 13.4 ms median, dominated by ledger fsync (4.1 ms/event),
 not signature verification (48 µs). In-process, one host, excluding the human.
 
 ## 5. Prompt injection

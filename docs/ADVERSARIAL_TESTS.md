@@ -4,7 +4,7 @@ Maps the master scenario list to tests that actually run. Reproduce all of it
 with:
 
 ```bash
-.venv/Scripts/python.exe -m pytest -q
+python -m pytest -q
 ```
 
 744 tests pass: commit `7055a49` plus the injection, sensor-precondition and conflict suites. No test touches

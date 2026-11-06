@@ -6,12 +6,17 @@ beat is in [DEMO_GUIDE.md](../docs/DEMO_GUIDE.md).
 
 Everything below is real output from this repository.
 
+Open [`site/index.html`](../site/index.html) as the opening frame: pick attack 01 in the interactive panel,
+let the trace finish, and the prevention criterion (sinks reached / state changed / ledger entry) is on
+screen before any command is typed.
+
 ## Before starting
 
 ```bash
 git checkout safemav/p08-p09-gateway
-python -m venv .venv && .venv/Scripts/python.exe -m pip install -e ".[dev]"
-.venv/Scripts/python.exe -m pytest -q      # 744 passed
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
+python -m pytest -q      # 744 passed
 ```
 
 Have two terminals: one for the agent side, one as the operator. They represent
@@ -30,7 +35,7 @@ is the only place a vehicle can be commanded, and the demos print it.
 ## 1:00 — It works end to end (1 min)
 
 ```bash
-.venv/Scripts/python.exe examples/patrol_sim.py
+python examples/patrol_sim.py
 ```
 
 ```json
@@ -91,14 +96,14 @@ human is never asked to sign something policy forbids.
 Operator terminal:
 
 ```bash
-.venv/Scripts/python.exe -m mavlink_mcp.operator_cli review review.json
+python -m mavlink_mcp.operator_cli review review.json
 ```
 
 Show what is actually signed: the vehicle, the measured home position quantized
 to millimetres, the policy hash, a 60-second window, a `request_digest`.
 
 ```bash
-.venv/Scripts/python.exe -m mavlink_mcp.operator_cli approve review.json \
+python -m mavlink_mcp.operator_cli approve review.json \
     --key op.key --key-id demo-key --operator-id alice --output token.txt
 ```
 
@@ -175,7 +180,7 @@ unknown vehicle state. No automatic retry, no automatic disarm, no automatic
 landing.
 
 ```bash
-.venv/Scripts/python.exe -m pytest -q tests/safety/test_gateway_outcomes.py -v
+python -m pytest -q tests/safety/test_gateway_outcomes.py -v
 ```
 
 Eight failure modes × two multi-sink actions, plus a task that ignores
@@ -184,7 +189,7 @@ cancellation.
 ## 13:00 — Evidence and the gap (2 min)
 
 ```bash
-.venv/Scripts/python.exe tools/verify_benchmark.py
+python tools/verify_benchmark.py
 ```
 
 Recomputes all 18 benchmark rates from committed raw trials with an independent
@@ -200,7 +205,7 @@ oracle, and exits non-zero on any disagreement.
 Then end on the limitation, not the numbers:
 
 ```bash
-.venv/Scripts/python.exe -m pytest -q tests/safety/test_bypass_attempts.py -v
+python -m pytest -q tests/safety/test_bypass_attempts.py -v
 ```
 
 Seven bypass attempts blocked. The eighth —

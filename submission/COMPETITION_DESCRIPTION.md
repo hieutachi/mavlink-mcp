@@ -4,6 +4,9 @@
 **Category:** Best in Safeguarding Physical-World Actions
 **Repository:** https://github.com/hieutachi/mavlink-mcp (branch `safemav/p08-p09-gateway`)
 
+**Showcase page:** `site/index.html` in this branch — a single self-contained file. Open it locally for the
+interactive attack replay and the measured results table, or serve the `site/` folder through GitHub Pages.
+
 ## Title
 
 SafeMAV: Verifiable Human Authorization and Policy Enforcement for AI-Controlled UAVs
@@ -179,7 +182,7 @@ Two further scenarios matter more than the happy path: a valid signature
 refused because the vehicle lifted off between signing and execution, and
 authority lapsing between the two sinks of a takeoff so the second never fires.
 
-One command runs it all: `.venv/Scripts/python.exe examples/patrol_sim.py`
+One command runs it all: `python examples/patrol_sim.py`
 
 ## Limitations
 
@@ -192,8 +195,9 @@ aircraft has flown with this code.
 ```bash
 git clone https://github.com/hieutachi/mavlink-mcp.git
 cd mavlink-mcp && git checkout safemav/p08-p09-gateway
-python -m venv .venv && .venv/Scripts/python.exe -m pip install -e ".[dev]"
-.venv/Scripts/python.exe -m pytest -q
-.venv/Scripts/python.exe examples/patrol_sim.py
-.venv/Scripts/python.exe tools/verify_benchmark.py
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev]"
+python -m pytest -q
+python examples/patrol_sim.py
+python tools/verify_benchmark.py
 ```
