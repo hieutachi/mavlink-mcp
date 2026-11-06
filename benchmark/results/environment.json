@@ -1,0 +1,46 @@
+{
+  "captured_utc": "2026-11-06T04:24:35.516373+00:00",
+  "commits": {
+    "baseline": {
+      "commit": "962448c",
+      "full": "962448ce7b52c95b7fb4faca7174bedf7fd2727f",
+      "reconstructed_from": [
+        "962448c:src/mavlink_mcp/drone.py",
+        "962448c:src/mavlink_mcp/guardrails.py"
+      ],
+      "subject": "feat: initial MVP1 scaffold - UAV capability layer + MCP server over MAVSDK"
+    },
+    "current": {
+      "branch": "safemav/p08-p09-gateway",
+      "commit": "7055a49",
+      "full": "7055a496c235bfd39872689626a911983731b771",
+      "subject": "feat(safety): enforce signed human authorization for every UAV write",
+      "worktree_clean": true
+    }
+  },
+  "host": {
+    "cpu_count": 32,
+    "machine": "AMD64",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+    "python_implementation": "CPython",
+    "python_version": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]"
+  },
+  "latency_trials": 120,
+  "loaded_package": {
+    "cryptography": "50.0.0",
+    "mavlink_mcp.__file__": "C:\\Users\\N4G\\OneDrive\\1. TLU\\Opensource\\mavlink-mcp\\src\\mavlink_mcp\\__init__.py"
+  },
+  "master_seed": 20261106,
+  "source_digests": {
+    "benchmark/arms.py": "949b3f1608266dfabc5eaf946787cca2a62c847383cf32f02c7384fadbaad902",
+    "benchmark/baseline.py": "17a7e43896878ee9afebf85f6a14a00332a6f27a834f2d200c6097e91edcc891",
+    "benchmark/runner.py": "0d639a1ea7bd23702d2ba9443279fa51fd1d7f5f1408422b2ed121e1e87470d5",
+    "benchmark/scenarios.py": "4deadc21aad50f0aa7a9c4a8ec61039745e0521b06969093b8bd864c1036ab0b",
+    "benchmark/spy_adapter.py": "4d49aa90691565448e215b43edc3c650e638f8ffa69b2c96d2d776bfeb4f2d2d",
+    "benchmark/stats.py": "2d83cac56cc40bf1b130248e1cea4be6fb5cafdca8d13d43f0883ac0e1012780",
+    "src/mavlink_mcp/drone.py": "aad53ae8970c69a694567876f2b16fd598363f0459db927d62045d2961844030",
+    "src/mavlink_mcp/safety/gateway.py": "8befbc1222a51577814d33137b8f7cecca42d12447d9ef666900cd9e3288ef18"
+  },
+  "trials_per_subcase": 30
+}
