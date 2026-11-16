@@ -127,34 +127,68 @@ across process restarts. Replaying the token afterwards returns
 
 ## Quick Start
 
-For a local, network-free demo, set `MAVLINK_MCP_BACKEND=sim` and follow [Option 0 in the simulator guide](docs/simulator-quickstart.md#option-0--built-in-kinematic-simulator-windows-no-docker-or-ros). All 12 tools work against a moving synthetic vehicle without Docker, ROS or PX4. Telemetry is labelled synthetic; battery/GPS are null. This is a kinematic integration test, **not** a physics or energy simulator. Run `python examples/patrol_sim.py` for a bounded stdio flight test.
-
-For the MAVSDK backend (the default), install and configure SITL separately:
+### Read-only in one command
 
 ```bash
-pip install git+https://github.com/hieutachi/mavlink-mcp.git
+git clone https://github.com/hieutachi/mavlink-mcp.git
+cd mavlink-mcp && git checkout safemav/p08-p09-gateway
+python -m venv .venv
+source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
 ```
 
-Start a PX4 SITL (see [docs/simulator-quickstart.md](docs/simulator-quickstart.md) — one Docker command), then add to your MCP client config:
+Add to your MCP client config (Claude Desktop, Cursor, VS Code, ...):
 
 ```json
 {
   "mcpServers": {
     "mavlink": {
       "command": "mavlink-mcp",
-      "env": { "MAVLINK_MCP_READONLY": "true" }
+      "env": { "MAVLINK_MCP_BACKEND": "sim" }
     }
   }
 }
 ```
 
 Then ask your agent: *"What can this drone do, and where is it right now?"*
+Telemetry works immediately. Every tool that could move the vehicle answers
+`READONLY` — because no trusted launch config was supplied, and that is the
+default.
 
-When you're ready to fly (in the simulator!), set `MAVLINK_MCP_READONLY` to `"false"`.
+### A vehicle you can actually fly, with no autopilot
+
+The bundled simulator is a network-free kinematic model over a real MCP stdio
+server. Generate an operator key, write a launch config (see
+[Configuration](#configuration)), and start the server with
+`SAFEMAV_CONFIG=./safemav.json MAVLINK_MCP_BACKEND=sim`. All 12 tools then work
+against a moving synthetic vehicle without Docker, ROS or PX4. Telemetry is
+labelled synthetic; battery and GPS are null. This is a kinematic integration
+test, **not** a physics or energy simulator.
+
+The fastest end-to-end demonstration — eight approved actions and three
+refusals over real MCP stdio, with a throwaway key — is one script:
+
+```bash
+python examples/patrol_sim.py
+```
+
+### Against a real autopilot
+
+Start PX4 SITL ([one Docker command](docs/simulator-quickstart.md), or headless
+with [tools/run_sitl.sh](tools/run_sitl.sh)), point the server at it with
+`MAVLINK_MCP_BACKEND=mavsdk` and `MAVLINK_MCP_URL=udpin://0.0.0.0:14540`, and
+keep `SAFEMAV_CONFIG` set. `docs/SITL_EVIDENCE.md` records what that looks like
+when it works and what each refusal returns.
+
+> **`MAVLINK_MCP_READONLY=false` does not grant write access.** It is a legacy
+> guardrail flag, not an authorization switch. Without a valid `SAFEMAV_CONFIG`
+> there is no gateway to approve against, so writes stay refused. Pointing a
+> real aircraft at this without reading [Limitations](#limitations) and
+> [SECURITY.md](SECURITY.md) is not a supported use.
 
 ## Capabilities & tools
 
-12 tools covering 8 capabilities. All tools return JSON; errors come back as `{"error": "...", "guardrail": true}` instead of raising, so the agent can read and react.
+12 tools covering 8 capabilities. Every tool returns JSON and none raises for a policy refusal: a denied call comes back as `decision: DENY` with `error` and `guardrail: true` set, so the agent can read the reason code and react. See [What the agent sees](#what-the-agent-sees).
 
 | Tool | Capability | What it does | Mutating? |
 | --- | --- | --- | --- |
@@ -171,6 +205,93 @@ When you're ready to fly (in the simulator!), set `MAVLINK_MCP_READONLY` to `"fa
 | `goto_location` | Goto | Fly to one waypoint and loiter | **signed approval** + geofence/altitude |
 | `fly_mission` | Mission | Upload a waypoint mission and start it | **signed approval**, every waypoint checked |
 
+## What the agent sees
+
+Every tool returns JSON. A write is never executed on the first call: it returns
+an approval request, and the agent has to resubmit the same call with the signed
+token. That shape is the contract — the agent can plan, but cannot proceed
+without a signature it is unable to produce.
+
+First call, no approval yet (`arm` on a healthy vehicle). Trimmed for width,
+nothing removed but the surrounding fields:
+
+```json
+{
+  "schema_version": 1,
+  "request_id": "37b647e6-0add-46fd-963e-60b3ea4dc6a6",
+  "decision": "REQUIRE_APPROVAL",
+  "reason_code": "APPROVAL_REQUIRED",
+  "execution_status": "NOT_STARTED",
+  "partial_effects": false,
+  "approval_request": {
+    "action": "arm",
+    "actor_id": "demo-agent",
+    "vehicle_id": "demo-vehicle",
+    "gateway_id": "demo-gateway",
+    "environment": "kinematic",
+    "parameters": {},
+    "reference_frame": "HOME_RELATIVE",
+    "request_digest": "b92296b2…7ab093",
+    "policy_hash": "0b3f1583…401a83e3",
+    "boot_epoch": "gMMOEXdkj1s01rLk239WuzD7",
+    "connection_epoch": "1",
+    "home_epoch": "1",
+    "home_anchor": {"latitude_e7": 473977420, "longitude_e7": 85455940,
+                    "absolute_altitude_amsl_mm": 488000, "vertical_datum": "AMSL"},
+    "mission_digest": null,
+    "nonce": "laI6gT73j1ukzEN_sioGA00L8z8WwND5RTM3SBBD234",
+    "issued_at_utc_ms": 1794847050162,
+    "expires_at_utc_ms": 1794847110162
+  }
+}
+```
+
+That payload is the whole security argument in one object: the digest covers the
+action and the canonical parameters, and the surrounding fields pin the decision
+to one actor, one vehicle, one gateway instance, one policy file, one connection,
+one home position and one 60-second window. Change any of them and the signature
+no longer matches what is being executed.
+
+
+
+Resubmitted after a human signed it, with one parameter changed:
+
+```json
+{
+  "schema_version": 1,
+  "request_id": "r-91c2",
+  "decision": "DENY",
+  "reason_code": "PARAMETER_MISMATCH",
+  "execution_status": "NOT_STARTED",
+  "partial_effects": false,
+  "error": "PARAMETER_MISMATCH",
+  "guardrail": true
+}
+```
+
+Only `DENY` sets `error`, so needing consent is not reported as a fault — an
+agent should treat `REQUIRE_APPROVAL` as the normal next step. `partial_effects`
+is `true` when a multi-sink action stopped between its calls; in that case
+`execution_status` is `UNKNOWN` and the writer latches closed.
+
+Reason codes an agent can branch on:
+
+| Reason code | Meaning |
+| --- | --- |
+| `APPROVAL_REQUIRED` | A signature is needed; nothing was sent. |
+| `APPROVAL_INVALID` | Signature wrong, token unbound, or key not trusted. |
+| `APPROVAL_EXPIRED` | The signed window closed. |
+| `APPROVAL_REPLAY` | This approval was already spent (including a concurrent duplicate). |
+| `PARAMETER_MISMATCH` | Something a human signed is not what is being executed. |
+| `VEHICLE_CHANGED` / `POLICY_CHANGED` | Identity, connection epoch, home anchor or policy hash moved since approval. |
+| `TELEMETRY_STALE` / `TELEMETRY_INCOMPLETE` | Receipts too old, or a required field never arrived. |
+| `UNSAFE_STATE` | The vehicle is not in a state where this action is legal (e.g. `goto` while grounded). |
+| `OUTSIDE_GEOFENCE` / `ALTITUDE_LIMIT` | Envelope refusal. |
+| `INVALID_ARGUMENT` | Not representable — `NaN`, sub-millimetre altitude, unknown field. |
+| `READONLY` / `GATEWAY_UNAVAILABLE` | No trusted launch config, or no gateway composed. |
+| `EXECUTION_UNKNOWN` | A previous action is in an uncertain state; the writer is latched. |
+| `BUSY` | Another command holds the writer. |
+
 ## Example conversation
 
 > **You:** Check the drone and, if it's healthy, do a short patrol at 20 m.
@@ -183,19 +304,88 @@ When you're ready to fly (in the simulator!), set `MAVLINK_MCP_READONLY` to `"fa
 > **Agent:** *(calls `arm` — gets back an approval request, not an action)*
 > Request `a1b2c3` is waiting for your signature.
 >
-> **You:** *(runs `safemav-operator approve` with your key)*
+> **You:** *(runs `safemav-operator review request.json` to read the exact numbers, then
+> `safemav-operator approve request.json --key operator.key --key-id demo-key \n> --operator-id alice --output approval.token` — signing is a local, interactive step)*
 >
 > **Agent:** *(resubmits `arm` with the signed token, then `takeoff(altitude_m=20)` the same way, then `fly_mission` with 3 waypoints inside the geofence, monitors `get_telemetry`, finishes with `return_to_launch`)*
 > Patrol complete — the drone is back at the launch point and disarmed.
 
 ## Configuration
 
-| Environment variable | Default | Description |
+Two layers, deliberately separate. **Environment variables** configure how the
+process runs. **The launch config** carries every safety-relevant decision, and
+policy limits live only there — so whatever launched the process cannot widen
+them.
+
+| Variable | Default | Effect |
 | --- | --- | --- |
-| `MAVLINK_MCP_URL` | `udpin://0.0.0.0:14540` | MAVLink endpoint (PX4 SITL's offboard port). With MAVSDK 2.x the older syntax `udp://:14540` is used automatically. |
-| `MAVLINK_MCP_READONLY` | **`true`** | Reject every tool that can move the vehicle (see Safety) |
-| `MAVLINK_MCP_MAX_ALTITUDE_M` | `50` | Ceiling for takeoff/goto/mission altitudes, meters above launch. `0` disables. |
-| `MAVLINK_MCP_GEOFENCE_RADIUS_M` | `200` | Soft geofence radius around the home position, meters. `0` disables. |
+| `SAFEMAV_CONFIG` | unset | Path to the trusted launch config. **Unset means read-only, no gateway.** |
+| `MAVLINK_MCP_BACKEND` | `mavsdk` | `sim` (kinematic) or `mavsdk` (real adapter). Unknown values fail closed; there is no fallback. |
+| `MAVLINK_MCP_URL` | `udpin://0.0.0.0:14540` | MAVLink endpoint for the `mavsdk` backend. |
+| `MAVLINK_MCP_READONLY` | `true` | Legacy flag. Can refuse, **cannot** authorize. |
+| `SAFEMAV_RUNTIME_DIR` | platform default | Where the ledger lives when `ledger_path` is relative. |
+
+### The trusted launch config
+
+Create the operator keypair first. The private half never goes near the server:
+
+```bash
+safemav-operator keygen --output operator.key --key-id demo-key --operator-id alice
+```
+
+It prints the public half and writes 32 private bytes to `operator.key`. Store
+that file where the server cannot read it, ideally on another machine. Then
+`safemav.json`, holding only the public key:
+
+```json
+{
+  "actor_id": "demo-agent",
+  "vehicle_id": "demo-vehicle",
+  "gateway_id": "demo-gateway",
+  "environment": "kinematic",
+  "readonly": false,
+  "bootstrap": true,
+  "ledger_path": "ledger.sqlite3",
+  "policy": {
+    "readonly": false,
+    "max_altitude_m": 50,
+    "max_radius_m": 200,
+    "min_battery_percent": 30
+  },
+  "trust_keys": [{
+    "key_id": "demo-key",
+    "operator_id": "alice",
+    "roles": ["human_operator"],
+    "vehicles": ["demo-vehicle"],
+    "actions": ["arm", "disarm", "takeoff", "land", "hold",
+                "return_to_launch", "goto", "fly_mission"],
+    "public_key": "2NsfkoDPStiE7yRIUx1iKHi7RO0cgzi55kk19nVxpug"
+  }]
+}
+```
+
+`bootstrap: true` creates the ledger on first run; after that, remove it or set
+it to `false`. An invalid, unreadable or mismatched config raises and refuses to
+start — it never falls back to defaults or to a mock environment. Two
+independent denial switches (`readonly` at the top level and inside `policy`)
+must both permit writes.
+
+### Policy keys
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `max_altitude_m` | 50 | Ceiling above the launch point. |
+| `max_radius_m` | 200 | Soft fence radius around home. |
+| `max_speed_mm_s` | 5000 | Per-waypoint speed ceiling. |
+| `min_battery_percent` | 30 | Refuse new flights below this. |
+| `max_age_ms` | 1000 | Oldest acceptable telemetry receipt. |
+| `max_skew_ms` | 500 | Oldest acceptable spread across fields. Measured PX4 needs ≥ 2000; see [SITL_EVIDENCE](docs/SITL_EVIDENCE.md). |
+| `min_satellites` | 10 | GPS quality gate for arming in the `px4_sitl` profile. |
+| `numerical_margin_mm` | 50 | Slack added before comparing against a limit. |
+
+Defaults are tuned for the mock and kinematic tiers. They are a starting point
+for a simulator, not validated thresholds for any aircraft — measured PX4
+telemetry already forced one correction.
 
 ## Safety
 
@@ -233,7 +423,7 @@ Evidence for these claims, measured against a live headless PX4 SITL, is in
 supported Python API in this process. It is not an OS sandbox. Code already
 running inside the same interpreter can read the gateway's private issuer
 object and forge a lease; that attempt is enumerated and tested in
-[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) section 8b. These checks are also
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) section 8b and summarised in [Limitations](#limitations). These checks are also
 **not** a substitute for the autopilot's own failsafes, a real geofence
 configured in PX4/ArduPilot, network isolation, or a human with an RC transmitter. Read [SECURITY.md](SECURITY.md) before considering real hardware, and treat real-world flights as requiring registration/permits under your local aviation law (e.g. Vietnam's UAV Decree 288/2025 requires registration and flight permits).
 
@@ -247,11 +437,11 @@ bare `Drone` is read-only by design:
 from mavlink_mcp import Drone
 from mavlink_mcp.adapters.mavsdk_adapter import MavsdkAdapter
 
-drone = Drone(MavsdkAdapter())            # no gateway -> telemetry only
-snapshot = await drone.get_telemetry()
+drone = Drone(MavsdkAdapter())            # no gateway
+snapshot = await drone.get_telemetry()    # reads are fine
 
-result = await drone.arm()                # REQUIRE_APPROVAL, nothing was sent
-print(result.request_id)                  # hand this to the operator to sign
+result = await drone.arm()                # DENY / READONLY, nothing was sent
+assert result.decision.value == "DENY" and result.reason_code.value == "READONLY"
 ```
 
 To actually fly, compose the trusted runtime (ledger, policy, operator trust
@@ -268,14 +458,39 @@ result = await drone.takeoff(20.0, request_id=pending.request_id,
 assert result.execution_status == "ACKNOWLEDGED"   # accepted, not completed
 ```
 
-A complete runnable version, including an ephemeral operator key and the
-refusal cases, is [examples/patrol_sim.py](examples/patrol_sim.py).
+Without `SAFEMAV_CONFIG`, `create_drone()` returns a read-only drone with no
+gateway rather than raising — writes then refuse with `READONLY`. With a config
+that is present but invalid, unreadable, or mismatched to the backend, it raises
+and refuses to start. A complete runnable version — ephemeral operator key, the
+approval loop, and the refusal cases — is
+[examples/patrol_sim.py](examples/patrol_sim.py).
+
+## Limitations
+
+Written first, not last. Where a limitation can be demonstrated, it is
+asserted by a test that expects it to fail or reproducible from committed
+data; where it is a property of what was built (no aircraft was flown, a
+signature is key possession) it is stated and left as such.
+
+| Limitation (six groups; thirteen sections in the full document) | What it means |
+| --- | --- |
+| **Not an OS sandbox (G1/G2)** | Enforcement holds through the MCP tools and the supported Python API. It does not hold against code already running in the same interpreter: that code can read the gateway's private issuer object and forge a lease. Measured 30/30 on *both* arms, and [a test asserts it](tests/safety/test_bypass_attempts.py). Closing it needs process isolation, which is designed for and not built. |
+| **No physical aircraft** | SITL exercises the MAVLink and MAVSDK path, not airworthiness, radio links or sensor failure. ArduPilot is untested. `ACKNOWLEDGED` is autopilot acceptance, never a completed flight. |
+| **A signature is key possession, not judgement** | Approval fatigue, a coerced operator, and a stolen private key are not addressed. Key custody is the operator's responsibility. |
+| **Freshness is arrival time, not authenticity** | A spoofed GPS produces timely, well-formed, wrong telemetry. Staleness detection is not integrity. |
+| **Mocks, one host, our scenarios** | The 2,340-trial benchmark runs on deterministic mocks: it shows pre-dispatch gating, binding, fault timing and the state machine, and nothing about flight dynamics. Thirty trials of a deterministic check is one mechanism observed thirty times. Latency is one Windows host with the ledger on a cloud-synced directory. |
+| **Audit is tamper-evident, not tamper-proof** | The hash chain detects edits made without the key material. It does not stop someone who can rewrite the whole file. |
+
+Each one is developed further, with the test or data that pins it, in
+[submission/KNOWN_LIMITATIONS.md](submission/KNOWN_LIMITATIONS.md) and
+[docs/SECURITY_ANALYSIS.md](docs/SECURITY_ANALYSIS.md).
 
 ## Documentation
 
 | Document | What it covers |
 | --- | --- |
 | [INSTALLATION.md](docs/INSTALLATION.md) | Tiered setup: tests, kinematic demo, PX4 SITL |
+| [simulator-quickstart.md](docs/simulator-quickstart.md) | The three simulator options, including the no-Docker kinematic one |
 | [DEMO_GUIDE.md](docs/DEMO_GUIDE.md) | Three scenarios with real transcripts |
 | [SECURITY_ANALYSIS.md](docs/SECURITY_ANALYSIS.md) | Each claim mapped to a test, and what is not claimed |
 | [THREAT_MODEL.md](docs/THREAT_MODEL.md) | Adversaries, trust boundaries, attack tree |
@@ -284,6 +499,9 @@ refusal cases, is [examples/patrol_sim.py](examples/patrol_sim.py).
 | [SITL_EVIDENCE.md](docs/SITL_EVIDENCE.md) | Recorded run against headless PX4 |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Component design |
 | [site/index.html](site/index.html) | One-page showcase, live at <https://hieutachi.github.io/mavlink-mcp/>: measured results, interactive attack replay, links to every artifact |
+| [KNOWN_LIMITATIONS.md](submission/KNOWN_LIMITATIONS.md) | The long form: thirteen sections, each marked as tested, measured, or simply stated |
+| [INITIAL_SECURITY_AUDIT.md](docs/INITIAL_SECURITY_AUDIT.md) | The audit written **before** any change, in Vietnamese: what the original guardrails did and did not establish |
+| [SITL_EVIDENCE.json](docs/SITL_EVIDENCE.json) | The PX4 run as machine-readable data, not prose |
 
 For the competition submission, see [submission/](submission/).
 
