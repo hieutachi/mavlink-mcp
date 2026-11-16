@@ -506,6 +506,8 @@ Each one is developed further, with the test or data that pins it, in
 
 For the competition submission, see [submission/](submission/).
 
+Built with AI-assisted development tools under the author's direction. Every number here is reproducible from committed data and every security claim is pinned by a running test; nothing rests on generated text.
+
 ## Privacy & legal
 
 **No telemetry, no data collection.** The only network connection this package opens is the MAVLink endpoint you configure (`MAVLINK_MCP_URL`). Vehicle data returned by tools goes exclusively to your MCP client.

@@ -281,7 +281,7 @@ Giữ `mavlink_mcp`, console script `mavlink-mcp`, đơn vị vật lý, tên 12
 6. T01–T25 và test bổ sung, protected deployment, baseline benchmark, PX4 demo.
 7. Report số liệu thật và submission; dashboard chỉ sau gate cốt lõi.
 
-Audit trail/intent phải có cùng anti-replay transaction, không đẩy toàn bộ audit xuống “Priority 3” như master prompt. UI vẫn là ưu tiên thấp.
+Audit trail/intent phải có cùng anti-replay transaction, không đẩy toàn bộ audit xuống mức ưu tiên thấp. UI vẫn là ưu tiên thấp.
 
 ## 9. Thông tin cuộc thi đã đối chiếu
 

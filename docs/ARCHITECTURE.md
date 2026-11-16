@@ -396,7 +396,7 @@ Denied input trước khi parse không có request ID thì tạo event ID riêng
 - Operator CLI ngoài agent container, private key chỉ operator identity giữ. Gateway mount public trust store read-only, không private key.
 - Trusted gateway code/config mount immutable; runtime SQLite local non-synced, chỉ gateway identity ghi. One vehicle owner instance. Identity của MCP channel là fixed principal do launcher bind.
 
-Không expose một HTTP approval endpoint hoặc cấp Docker control cho agent cho tiện demo. Không yêu cầu đổi cấu hình Qoder/MCP đang dùng trong lượt kế hoạch này.
+Không expose một HTTP approval endpoint hoặc cấp Docker control cho agent cho tiện demo. Không yêu cầu đổi cấu hình MCP client đang dùng.
 
 ### 9.2 Gate để claim G2
 

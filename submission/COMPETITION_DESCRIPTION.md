@@ -162,7 +162,7 @@ Evidence: [INSTALLATION.md](../docs/INSTALLATION.md),
 
 Eight documents, each stating what it does not establish.
 [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) is a document, not a footnote.
-Defects found during development — including two in my own verification
+Defects found during development — including two in the verification
 tooling — are recorded with their causes.
 
 ## Demonstration
@@ -201,3 +201,13 @@ python -m pytest -q
 python examples/patrol_sim.py
 python tools/verify_benchmark.py
 ```
+
+## Disclosure
+
+The design, implementation, measurements and writing were produced with
+AI-assisted development tools under the author's direction. Every quantitative
+claim is reproducible from committed data by the scripts in `benchmark/` and
+`tools/`, and every security property is pinned by a test that runs; a reader
+does not need to take any generated text on trust. Errors found during
+development, including two in the verification tooling itself, are recorded in
+[KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) §11.

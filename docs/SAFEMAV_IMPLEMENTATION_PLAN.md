@@ -1,14 +1,19 @@
-# SafeMAV — Kế hoạch triển khai bàn giao cho mô hình thực thi
+# SafeMAV — Kế hoạch triển khai
 
 Ngày lập: **05/11/2026**. Trạng thái: **PLAN ONLY — KHÔNG PHẢI LỆNH BẮT ĐẦU TRIỂN KHAI**.
 
-## 0. Cách dùng ngay
+## 0. Cách dùng tài liệu này
 
-Chủ dự án đọc phần 1–3 và [audit](INITIAL_SECURITY_AUDIT.md). Khi quyết định thực hiện, phê duyệt [kiến trúc](ARCHITECTURE.md), rồi giao **mỗi lần một gói Pxx** bằng prompt ở phần 10. Không giao lại toàn bộ master prompt và yêu cầu mô hình nhỏ “tự triển khai hết”.
+Tài liệu ghi lại kế hoạch chia gói P00–P17, thứ tự phụ thuộc và các quality gate
+đã đặt ra trước khi triển khai. Đọc phần 1–3 cùng
+[audit](INITIAL_SECURITY_AUDIT.md) trước, đối chiếu với
+[kiến trúc](ARCHITECTURE.md) đã được duyệt, rồi thực hiện **mỗi lần một gói**.
+Phần 10 giữ mẫu mô tả phạm vi một gói để đối chiếu, không phải chỉ dẫn chạy
+hàng loạt.
 
-Thứ tự đọc cho executor:
+Thứ tự đọc trước khi làm một gói:
 
-1. `CLAUDE.md` và `CONTRIBUTING.md` — giữ package, license policy, mock-first.
+1. `AGENTS.md` và `CONTRIBUTING.md` — giữ package, license policy, mock-first.
 2. `docs/INITIAL_SECURITY_AUDIT.md` — hiện trạng và F01–F14.
 3. `docs/THREAT_MODEL.md` — G1/G2, scope và invariants I01–I14.
 4. `docs/ARCHITECTURE.md` — **nguồn chuẩn duy nhất cho contracts**.
@@ -34,19 +39,19 @@ Một PX4 SITL vehicle; 8 mutation actions được bảo vệ tại 10 write si
 
 Tạm hoãn: dashboard web, ROS/ArduPilot/hardware, fleet, OAuth/SSO, mission optimization, LLM safety judge, video generation và novelty claims “đầu tiên”. Nếu cần video demo sau này, ghi từ run thật; không tạo video giả làm bằng chứng.
 
-### 2.2 Ba quyết định chủ dự án cần duyệt trước code
+### 2.2 Ba quyết định cần duyệt trước khi viết code
 
 | Quyết định | Khuyến nghị |
 | --- | --- |
 | Breaking safety behavior | Chấp nhận `confirm=true` không còn quyền; mọi mutation agent cần approval trong v1; direct raw adapter không còn là public safe surface |
-| Operator identity/key separation | Operator CLI/key không nằm trong quyền agent; không để executor tự ký thay người trong demo rồi gọi “human-approved” |
+| Operator identity/key separation | Operator CLI/key không nằm trong quyền agent; không để tiến trình thực thi tự ký thay người trong demo rồi gọi “human-approved” |
 | Scope direct Python | G1 cho API, **G2 isolation bắt buộc** nếu muốn tuyên bố arbitrary Python không bypass; nếu G2 chưa đạt, báo chưa hoàn thành yêu cầu tương ứng |
 
 Mặc định kế hoạch theo cả G1 và G2. Không hạ scope âm thầm. Cấu hình containment triển khai trên Linux/WSL2 với trusted launcher/stdio relay; demo cùng user Windows chỉ được label G1.
 
 ### 2.3 Thời gian và điều kiện thực tế
 
-Nguồn cuộc thi đã xác nhận ngày 15/11/2026, chưa xác minh timezone. Từ 05/11 chỉ khoảng 10 ngày lịch: **khả thi cho prototype hẹp nếu dành đủ thời gian và PX4 environment sẵn**, không có cơ sở hứa hoàn thành toàn bộ prompt hoặc bảo đảm giải.
+Nguồn cuộc thi đã xác nhận ngày 15/11/2026, chưa xác minh timezone. Từ 05/11 chỉ khoảng 10 ngày lịch: **khả thi cho prototype hẹp nếu dành đủ thời gian và PX4 environment sẵn**, không có cơ sở hứa hoàn thành toàn bộ phạm vi hoặc bảo đảm giải.
 
 Ước lượng engineering ban đầu: khoảng **70–110 giờ người thực hiện/review**, có thể tăng vì WSL2/network/SITL. Đây là dự toán, không số giờ đã thực hiện. Nếu chỉ vài giờ mỗi ngày, ưu tiên G1 + tests + báo cáo trung thực; không đóng dấu complete cho G2/SITL còn thiếu.
 
@@ -75,12 +80,12 @@ APPROVAL -> P00 -> P01 -> P02 -> P03 -> P04 -> P05 -> P06
                                                         P13 -> P14 -> P15 -> P16 -> P17
 ```
 
-Ý nghĩa: P07 cần contracts/config/ledger và approval API đã qua test; P08 cần gateway cơ bản và ledger; P09 cần lease adapter contract; P10 cần core đã tích hợp và monitor; P12 cần đủ core/MCP/recovery; P13/G2 cần API contracts và adversarial tests. Để mô hình nhỏ dễ kiểm soát, **thực thi mặc định tuần tự P00→P17**. Chỉ cho research/environment checks độc lập chạy song song, không cho hai model sửa `drone.py`/`server.py` cùng lúc.
+Ý nghĩa: P07 cần contracts/config/ledger và approval API đã qua test; P08 cần gateway cơ bản và ledger; P09 cần lease adapter contract; P10 cần core đã tích hợp và monitor; P12 cần đủ core/MCP/recovery; P13/G2 cần API contracts và adversarial tests. Để dễ kiểm soát, **thực thi mặc định tuần tự P00→P17**. Chỉ research/environment checks độc lập được chạy song song; không hai nhánh nào sửa `drone.py`/`server.py` cùng lúc.
 
 | Gate | Điều kiện đi tiếp |
 | --- | --- |
 | Q0 Baseline | Snapshot/hashes đúng, thay đổi người dùng giữ nguyên, existing suite có kết quả thật |
-| Q1 Contracts | Strict immutable/golden vectors/role-policy tests pass; mô hình nhỏ không tự đổi contracts |
+| Q1 Contracts | Strict immutable/golden vectors/role-policy tests pass; contracts không bị đổi ngoài phê duyệt |
 | Q2 Authorization | Key separation design, binding, expiry, replay/concurrency/crash và positive control pass |
 | Q3 Enforcement | Cả Python/MCP và 10 sinks được instrument; no raw exposed facade; no UNKNOWN auto-retry |
 | Q4 Flight safety | Freshness/home/epochs/state/recovery profile + monitor-failure tests pass |
@@ -95,7 +100,7 @@ Quy tắc chung cho mỗi gói: đọc tệp liên quan đầy đủ, bổ sung 
 
 ### P00 — Freeze baseline và bảo toàn working tree
 
-- **Prerequisite:** chủ dự án đã duyệt bắt đầu implementation; không có package source thay đổi ngoài audit kể từ snapshot hoặc đã đối soát.
+- **Prerequisite:** implementation đã được duyệt bắt đầu; không có package source thay đổi ngoài audit kể từ snapshot hoặc đã đối soát.
 - **Đọc:** `docs/AUDIT_BASELINE.json`, `git status`, `git diff`; đọc 4 untracked files, không bỏ sót.
 - **Được tạo/sửa:** baseline artifacts trong `benchmarks/baselines/`, manifest; tạo development branch `safemav/gateway-v1` nếu tên còn trống và owner chấp thuận. Không reset/stash/clean/overwrite existing files để “làm sạch”.
 - **Làm:** lưu snapshot riêng của GitHub commit và local pre-SafeMAV code (src/tests/examples/config cần tái lập), SHA-256, diff metadata; không đưa `.venv`, cache, secret, OneDrive runtime DB vào archive. Giữ MIT license.
@@ -118,7 +123,7 @@ Quy tắc chung cho mỗi gói: đọc tệp liên quan đầy đủ, bổ sung 
 - **Làm:** action enum, immutable records, normalization integer units, bounded mission/request, frozen input trước await, digest definition và response/reason codes như architecture. **Sửa tối thiểu F03 ngay ở đường hiện tại:** clone giá trị waypoint thành immutable snapshot trước await đầu tiên và chỉ validate/dispatch snapshot đó. Không thêm gateway/approval ở bước này. Home canonical/datum/quantization và golden wire-boundary vectors theo architecture §3.2a, tách measurement normalization khỏi strict agent input.
 - **Tests:** bool/string/NaN/Inf/oversize/precision/unknown-key/duplicate-key rejection; defaults canonical; waypoint order/speed/yaw đổi thì digest đổi; golden UTF-8 bytes/signing payload; caller mutation không đổi frozen model.
 - **Done:** normalization dùng chung, không float trong canonical bytes, no Python `hash()`, no silent rounding.
-- **Stop:** executor chọn schema/units khác hoặc quyết định tự hỗ trợ metadata tùy ý.
+- **Stop:** schema/units bị đổi khác hoặc metadata tùy ý được tự thêm vào.
 
 ### P03 — Policy config, identities và pure policy engine
 
@@ -201,7 +206,7 @@ Quy tắc chung cho mỗi gói: đọc tệp liên quan đầy đủ, bổ sung 
 - **Làm:** hoàn thiện thin integration đã có ở P08; giữ 12 tên tool/deprecated confirm không quyền và token/request forwarding; thêm 2 read-only status/request tools có request ownership checks; strict numeric schemas trước framework coercion rồi normalizer chung; bound actor from launcher; response errors reason codes; `get_request_status` no retry. Nếu dùng Pydantic strict types thì khai báo direct dependency đã pin/kiểm tra, không dựa ngầm transitive dependency. Không thêm operator-control ingress hoặc biến operator signature thành quyền của submitting agent.
 - **Tests:** real stdio child **network-free**, malformed transport args, tool enumeration contract mới, raw JSON duplicate/oversize xử lý ở đúng boundary, actor injection, restart epoch, client disconnect. Example cũ chỉ fly khi explicit test/operator approval; không hardcode test key vào real demo.
 - **Done:** existing behavior migration có danh sách rationale; readonly/finite/fence/kinematic regressions còn; docs không tiếp tục hướng dẫn `confirm=true` như security control.
-- **Stop:** silently remove failing tests; tự sửa settings MCP/Qoder của người dùng; public HTTP/approval endpoint ngoài scope.
+- **Stop:** silently remove failing tests; tự sửa cấu hình MCP của người dùng; public HTTP/approval endpoint ngoài scope.
 
 ### P12 — Hoàn thiện adversarial matrix và positive controls
 
@@ -241,7 +246,7 @@ Quy tắc chung cho mỗi gói: đọc tệp liên quan đầy đủ, bổ sung 
 
 ### P16 — Reproducibility, dependency/security review và documentation
 
-- **Prerequisite:** P15 results; Q6 phải đạt nếu claim full master-prompt scope.
+- **Prerequisite:** P15 results; Q6 phải đạt nếu claim toàn bộ phạm vi.
 - **Tạo/sửa:** `docs/INSTALLATION.md`, `SECURITY_ANALYSIS.md`, `BENCHMARK_RESULTS.md`, `DEMO_GUIDE.md`; cập nhật ARCHITECTURE/THREAT_MODEL theo code thật, README, SECURITY, CHANGELOG, simulator quickstart, examples, dependency lock/CI nếu được giao.
 - **Làm:** clean environment install; default tests không hardware; SITL tier opt-in; document CLI/operator separation/runtime data location; dependency advisory/license check với nguồn/timestamp thật. Declared crypto dependency/lock cần phù hợp license policy; không tự nâng tất cả packages.
 - **Tests:** người/agent độc lập làm theo installation trong env sạch; link/code command consistency; all tests; no secret/log token; architecture10 sinks khớp code; version compatibility claims đúng matrix.
@@ -403,7 +408,7 @@ Cần tạo bằng actual implementation: modules ở architecture, migrated tes
 
 Mỗi deliverable technical cuối phải ghi: **Implemented / Tested / Partially implemented / Not implemented / Not verified on real hardware** khi phù hợp. Phần cứng thật nằm ngoài thử nghiệm, không cố đóng gate đó bằng suy luận từ SITL.
 
-## 9. Quy tắc dừng và review cho mô hình nhỏ
+## 9. Quy tắc dừng và review
 
 Dừng gói, báo blocker khi:
 
@@ -415,7 +420,7 @@ Dừng gói, báo blocker khi:
 - Test failure không rõ, missing tool/dependency, unverified service interface; ghi command/output và lựa chọn hỗ trợ, không fake green.
 - Sau crash/timeout, không biết vehicle đã làm gì: UNKNOWN, không auto retry flight.
 
-Gate review nên dùng model mạnh ở cuối **P03, P08, P10, P13 và P16**, còn model nhỏ làm từng gói/test rõ phạm vi. Reviewer phải đọc diff và actual test artifacts, không chỉ tin báo cáo executor. Mục tiêu là giảm tải reasoning cho model nhỏ, không giao nó tự quyết định mọi trade-off safety.
+Gate review kỹ nhất ở cuối **P03, P08, P10, P13 và P16**; các gói còn lại có phạm vi hẹp và test rõ ràng. Reviewer phải đọc diff và actual test artifacts, không chỉ tin báo cáo của người thực hiện. Mục tiêu là giữ cho mỗi gói đủ nhỏ để kiểm chứng được, không gộp nhiều thay đổi khó truy vết.
 
 ### Mẫu báo cáo cuối mỗi gói
 
@@ -434,15 +439,15 @@ Gói tiếp theo: Pyy, chưa tự chạy nếu chỉ được giao một gói
 Git: không commit/push (trừ khi có yêu cầu riêng)
 ```
 
-## 10. Prompt bàn giao có thể sao chép
+## 10. Mẫu mô tả phạm vi một gói
 
-Thay `[Pxx]` bằng đúng gói được giao. Không gửi prompt dưới đây trước khi chủ dự án đã duyệt implementation.
+Thay `[Pxx]` bằng đúng gói đang làm. Chỉ bắt đầu một gói sau khi kiến trúc và phạm vi đã được duyệt.
 
 ```text
 Bạn là mô hình thực thi cho mavlink-mcp/SafeMAV. Chỉ thực hiện gói [Pxx]
 trong docs/SAFEMAV_IMPLEMENTATION_PLAN.md. Đây không phải yêu cầu làm cả dự án.
 
-Đọc CLAUDE.md, CONTRIBUTING.md, INITIAL_SECURITY_AUDIT.md, THREAT_MODEL.md,
+Đọc AGENTS.md, CONTRIBUTING.md, INITIAL_SECURITY_AUDIT.md, THREAT_MODEL.md,
 ARCHITECTURE.md và riêng gói được giao. ARCHITECTURE.md là contract chuẩn.
 Kiểm tra trạng thái Git và prerequisite trước sửa; giữ toàn bộ thay đổi có sẵn.
 Nếu prerequisite chưa đạt, báo blocker và không làm gói sau.

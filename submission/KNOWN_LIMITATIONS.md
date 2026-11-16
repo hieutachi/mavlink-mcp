@@ -153,7 +153,7 @@ that advances on every read.
 `error` and `guardrail: true`, which teaches an agent to treat asking a human
 as a fault to route around. Only `DENY` carries `error` now.
 
-**Two oracle defects in my own benchmark verification script.** It counted a
+**Two oracle defects in the benchmark verification script.** It counted a
 correct single dispatch under four-way concurrency as replay acceptance, and
 folded 180 required-refusal trials into the positive-control denominator —
 which would have credited the baseline for flying out-of-envelope commands. It
@@ -161,7 +161,7 @@ also exited 0 while its cross-check matched no metric names and therefore
 compared nothing. Fixed; unmatched names are now an error, and tampering with
 a rate in the summary makes it exit 1.
 
-**Three of my own test assertions were wrong and the implementation was
+**Three test assertions were initially wrong and the implementation was
 right.** Recovery actions are deliberately not gated on flight mode, because
 de-escalation must stay cheap. Concurrent approved commands serialize rather
 than refuse each other. A stale navigation order expires on state change, not

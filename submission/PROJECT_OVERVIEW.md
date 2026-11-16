@@ -167,6 +167,12 @@ ceiling and haversine geofence score identically to the gateway, 0/60 on
 envelope violations. That part of the old design did not need replacing, and
 the benchmark says so.
 
+## Disclosure
+
+Built with AI-assisted development tools under the author's direction. Every
+number in this document is reproducible from committed data, and every security
+claim is pinned by a running test — see [COMPETITION_DESCRIPTION.md](COMPETITION_DESCRIPTION.md#disclosure).
+
 ## Reproducing in five minutes
 
 ```bash
