@@ -305,7 +305,8 @@ Reason codes an agent can branch on:
 > Request `a1b2c3` is waiting for your signature.
 >
 > **You:** *(runs `safemav-operator review request.json` to read the exact numbers, then
-> `safemav-operator approve request.json --key operator.key --key-id demo-key \n> --operator-id alice --output approval.token` — signing is a local, interactive step)*
+> `safemav-operator approve request.json --key operator.key --key-id demo-key --operator-id alice --output approval.token`
+> — signing is a local, interactive step)*
 >
 > **Agent:** *(resubmits `arm` with the signed token, then `takeoff(altitude_m=20)` the same way, then `fly_mission` with 3 waypoints inside the geofence, monitors `get_telemetry`, finishes with `return_to_launch`)*
 > Patrol complete — the drone is back at the launch point and disarmed.
